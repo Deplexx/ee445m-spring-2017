@@ -1,0 +1,30 @@
+2a) 78
+2b) 82-83
+2c) PA1-0: 1 = transmit, 0 = receive
+2d) char UART_InChar(void);
+2e) void UART_OutChar(char data);
+2f) Exports fcn names that get defined in user code
+2g) You need to acknowledge an interrupt to reset the int. flag. 
+  The only exception is the Systick interrupt, which does not need an explicit acknowledgement.
+2h) The UART has a 16 byte FIFO for each the transmit and receive data. So it's like a PC.
+3a) busy-wait
+3b) The parameters change the position, size, and color of the printed character.
+3c) // Backlight (pin 10) connected to +3.3 V
+// MISO (pin 9) unconnected
+// SCK (pin 8) connected to PA2 (SSI0Clk)
+// MOSI (pin 7) connected to PA5 (SSI0Tx)
+// TFT_CS (pin 6) connected to PA3 (SSI0Fss)
+// CARD_CS (pin 5) unconnected
+// Data/Command (pin 4) connected to PA6 (GPIO), high for data, low for command
+// RESET (pin 3) connected to PA7 (GPIO)
+// VCC (pin 2) connected to +3.3 V
+// Gnd (pin 1) connected to ground
+3d) sd card
+4a) NVIC_ST_RELOAD_R = period-1;// reload value
+4b) The PLL
+4c) The ISR gets called when the COUNT flag gets set. We don't need to acknowledge the flag. 
+  When the NVIC_ST_CURRENT_R register reaches 0, the COUNT flag is set
+5a) first: The ISR pushes r4 and lr, last: pop to r4 and pc
+5b) The computer pushes r0 - r4, r12, lr, pc, and xPSR onto the stack
+5c) all registers receive popped data from the stack
+
