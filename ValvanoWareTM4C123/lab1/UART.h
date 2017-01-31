@@ -59,6 +59,14 @@ void UART_OutChar(char data);
 // Output: none
 void UART_OutString(char *pt);
 
+//---------------------OutCRLF---------------------
+// Output a CR,LF to UART to go to a new line
+// Input: none
+// Output: none
+void UART_OutCRLF(void);
+
+void UART_OutStringCRLF(char* s);
+
 //------------UART_InUDec------------
 // InUDec accepts ASCII input in unsigned decimal format
 //     and converts to a 32-bit unsigned number

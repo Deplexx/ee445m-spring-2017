@@ -26,49 +26,47 @@
 // U0Rx (VCP receive) connected to PA0
 // U0Tx (VCP transmit) connected to PA1
 
+#include <stdbool.h>
 #include <stdint.h>
+#include <stdlib.h>
+#include <string.h>
+
+#include "ADCT2ATrigger.h"
 #include "PLL.h"
 #include "UART.h"
 
-//---------------------OutCRLF---------------------
-// Output a CR,LF to UART to go to a new line
-// Input: none
-// Output: none
-void OutCRLF(void){
-  UART_OutChar(CR);
-  UART_OutChar(LF);
-}
+#define IN_BUFF_SIZE 256
+char inBuff[IN_BUFF_SIZE];
+
 //debug code
-int main(void){
-  char i;
-  char string[20];  // global to assist in debugging
-  uint32_t n;
+int main(void) {
+  char *currTok;
 
   PLL_Init(Bus50MHz);       // set system clock to 50 MHz
   UART_Init();              // initialize UART
-  OutCRLF();
-  for(i='A'; i<='Z'; i=i+1){// print the uppercase alphabet
-    UART_OutChar(i);
-  }
-  OutCRLF();
-  UART_OutChar(' ');
-  for(i='a'; i<='z'; i=i+1){// print the lowercase alphabet
-    UART_OutChar(i);
-  }
-  OutCRLF();
-  UART_OutChar('-');
-  UART_OutChar('-');
-  UART_OutChar('>');
-  while(1){
-    UART_OutString("InString: ");
-    UART_InString(string,19);
-    UART_OutString(" OutString="); UART_OutString(string); OutCRLF();
+  adc_init();
 
-    UART_OutString("InUDec: ");  n=UART_InUDec();
-    UART_OutString(" OutUDec="); UART_OutUDec(n); OutCRLF();
+  UART_OutCRLF();
 
-    UART_OutString("InUHex: ");  n=UART_InUHex();
-    UART_OutString(" OutUHex="); UART_OutUHex(n); OutCRLF();
+  while(true) {
+    UART_OutString("> ");
+    UART_InString(inBuff, IN_BUFF_SIZE);
 
+    UART_OutCRLF();
+
+    if(strlen(inBuff) > IN_BUFF_SIZE) {
+      UART_OutStringCRLF("Commands must be <= 256 chars. Resulting buffer overflow may cause errors; exiting...");
+      exit(1);
+    }
+
+    if(strcmp((currTok = strtok(inBuff, " \t")), "echo") == 0)
+      UART_OutStringCRLF(strtok(NULL, " \t"));
+    else if(strcmp((const char*) currTok, "quit") == 0) {
+      UART_OutStringCRLF("Quitting...");
+      break;
+    } else if(strcmp((const char*) currTok, "adc") == 0)
+      adc_runComm(strtok(NULL, " \t"));
+    else if(strcmp((const char*) currTok, "") != 0)
+      UART_OutStringCRLF("Command not found. Enter \"quit\" to quit.");
   }
 }

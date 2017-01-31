@@ -169,6 +169,16 @@ void UART_OutString(char *pt){
   }
 }
 
+inline void UART_OutCRLF(void) {
+  UART_OutChar(CR);
+  UART_OutChar(LF);
+}
+
+inline void UART_OutStringCRLF(char* s) {
+    UART_OutString(s);
+    UART_OutCRLF();
+}
+
 //------------UART_InUDec------------
 // InUDec accepts ASCII input in unsigned decimal format
 //     and converts to a 32-bit unsigned number

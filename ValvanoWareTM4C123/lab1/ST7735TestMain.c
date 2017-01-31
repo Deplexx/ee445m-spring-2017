@@ -47,9 +47,9 @@
 // CS   - PA3 TFT_CS, active low to enable TFT
 // *CS  - (NC) SDC_CS, active low to enable SDC
 // MISO - (NC) MISO SPI data from SDC to microcontroller
-// SDA  – (NC) I2C data for ADXL345 accelerometer
-// SCL  – (NC) I2C clock for ADXL345 accelerometer
-// SDO  – (NC) I2C alternate address for ADXL345 accelerometer
+// SDA  ï¿½ (NC) I2C data for ADXL345 accelerometer
+// SCL  ï¿½ (NC) I2C clock for ADXL345 accelerometer
+// SDO  ï¿½ (NC) I2C alternate address for ADXL345 accelerometer
 // Backlight + - Light, backlight connected to +3.3 V
 
 // **********wide.hk ST7735R with ADXL335 accelerometer *******************
@@ -63,14 +63,14 @@
 // CS   - PA3 TFT_CS, active low to enable TFT
 // *CS  - (NC) SDC_CS, active low to enable SDC
 // MISO - (NC) MISO SPI data from SDC to microcontroller
-// X– (NC) analog input X-axis from ADXL335 accelerometer
-// Y– (NC) analog input Y-axis from ADXL335 accelerometer
-// Z– (NC) analog input Z-axis from ADXL335 accelerometer
+// Xï¿½ (NC) analog input X-axis from ADXL335 accelerometer
+// Yï¿½ (NC) analog input Y-axis from ADXL335 accelerometer
+// Zï¿½ (NC) analog input Z-axis from ADXL335 accelerometer
 // Backlight + - Light, backlight connected to +3.3 V
 
 #include <stdio.h>
 #include <stdint.h>
-#include "ST7735.h"
+#include "ST7735_.h"
 #include "PLL.h"
 #include "../inc/tm4c123gh6pm.h"
 
@@ -532,7 +532,7 @@ int main7(void){ int i; // main 7
   while(1){
   }
 }
-int main(void){  // main 2
+int main2(void){  // main 2
   int x, y, dx, dy;
 //  uint8_t red, green, blue;
   PLL_Init(Bus80MHz);                  // set system clock to 80 MHz
@@ -692,7 +692,7 @@ int main3(void){ // main3
   }
 }
 void BookExamples(void){ // examples from the book
-  int8_t cc = 0x56; // (‘V’)
+  int8_t cc = 0x56; // (ï¿½Vï¿½)
   int32_t xx = 100;
   int16_t yy = -100;
   float zz = 3.14159265;
