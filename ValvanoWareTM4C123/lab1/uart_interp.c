@@ -38,13 +38,25 @@
 #define IN_BUFF_SIZE 256
 char inBuff[IN_BUFF_SIZE];
 
-//debug code
+#define TEST_BUFF_SIZE 20
+uint16_t buff[TEST_BUFF_SIZE];
+
+int notmain(void) {
+    PLL_Init(Bus50MHz);       // set system clock to 50 MHz
+    UART_Init();              // initialize UART
+    ADC_Collect(0, 5000000, buff, TEST_BUFF_SIZE);
+
+    for(int i = 0; i < TEST_BUFF_SIZE; ++i) {
+        UART_OutUDec(buff[i]);
+        UART_OutCRLF();
+    }
+}
+
 int main(void) {
   char *currTok;
 
   PLL_Init(Bus50MHz);       // set system clock to 50 MHz
   UART_Init();              // initialize UART
-  adc_init();
 
   UART_OutCRLF();
 

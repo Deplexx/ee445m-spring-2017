@@ -45,3 +45,8 @@ void adc_runComm(const char *comm);
 // SS3 interrupts: enabled and promoted to controller
 // channelNum must be 0-11 (inclusive) corresponding to Ain0 through Ain11
 void ADC0_InitTimer2ATriggerSeq3(uint8_t channelNum, uint32_t period);
+
+int ADC_Collect(uint32_t channelNum,
+                uint32_t fs,
+                uint16_t buffer[],
+                uint32_t numberOfSamples);

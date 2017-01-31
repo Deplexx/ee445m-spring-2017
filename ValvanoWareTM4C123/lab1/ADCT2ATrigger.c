@@ -81,9 +81,11 @@ void WaitForInterrupt(void);  // low power mode
 #define FIFOSUCCESS 1         // return value on success
 #define FIFOFAIL    0         // return value on failure
                               // create index implementation FIFO (see FIFO.h)
-AddIndexFifo(adc, FIFOSIZE, uint16_t, FIFOSUCCESS, FIFOFAIL)
 
-bool ADCon = false;
+volatile uint16_t adcVal;
+volatile uint32_t ADC_BUFF_SIZE = 0; // must be initialized to 0 (or ADC ISR will likely cause hardfault)
+volatile uint16_t *adcBuff;
+bool adcOn = false;
 
 // There are many choices to make when using the ADC, and many
 // different combinations of settings will all do basically the
@@ -106,10 +108,6 @@ bool ADCon = false;
 
 inline void warnIsOff(void) {
   UART_OutStringCRLF("ADC is off. Enable it with \"adc on [channel] [freq in Hz].\"");
-}
-
-void adc_init(void) {
-    adcFifo_Init();
 }
 
 void adc_runComm(const char *comm) {
@@ -141,16 +139,11 @@ void adc_runComm(const char *comm) {
         UART_OutStringCRLF("Turning ADC0 on...");
         ADC0_InitTimer2ATriggerSeq3(channel, div);
 
-        ADCon = true;
+        adcOn = true;
     } else if(strcmp(currComm, "print") == 0) {
-        if(ADCon) {
-            volatile uint16_t ADCvalue;
-
+        if(adcOn) {
             UART_OutString("ADC Output: ");
-
-            while(adcFifo_Get(&ADCvalue) == FIFOFAIL) {}
-            UART_OutUDec(ADCvalue);
-
+            UART_OutUDec(adcVal);
             UART_OutCRLF();
 
             return;
@@ -333,7 +326,10 @@ void ADC0_InitTimer2ATriggerSeq3PD3(uint32_t period){
 
 void ADC0Seq3_Handler(void){
   ADC0_ISC_R = 0x08;          // acknowledge ADC sequence 3 completion
-  adcFifo_Put(ADC0_SSFIFO3_R);  // 12-bit result
+  adcVal = ADC0_SSFIFO3_R;
+
+  if(ADC_BUFF_SIZE > 0)
+    adcBuff[--ADC_BUFF_SIZE] = adcVal;
 }
 
 int ADC_Collect(uint32_t channelNum,
@@ -348,15 +344,16 @@ int ADC_Collect(uint32_t channelNum,
       UART_OutStringCRLF("Buffer is NULL; allocate a valid buffer.");
     else if(numberOfSamples < 1)
       UART_OutStringCRLF("Invalid number of samples; enter a number >= 1.");
-    else if(ADCon) {
+    else {
+      ADC_BUFF_SIZE = numberOfSamples;
+      adcBuff = buffer;
+
       ADC0_InitTimer2ATriggerSeq3(channelNum, fs);
 
-      for(int i = 0; i < numberOfSamples; ++i)
-        while((adcFifo_Get(&buffer[i])) == FIFOFAIL) {}
+      while(ADC_BUFF_SIZE > 0) {}
 
       return 1;
-    } else
-      UART_OutStringCRLF("ADC is not turned on; Enter \"adc on\" to turn it on.");
+    }
 
     return 0;
 }
