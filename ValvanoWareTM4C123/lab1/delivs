@@ -1,0 +1,36 @@
+A) Objectives 
+
+Re-familiarize ourselves with the launchpad and relevant concepts like;
+  - hw/sw fifos
+  - uart communication / serial i/o
+  - LCD drivers
+  - sw/hw interrupts
+  
+B) Hardware Design (not assigned for lab 1)
+  
+C) Software Design
+
+D) Measurement Data
+
+1) 475 ns
+
+2) 1.320 us
+
+E) Analysis and Discussion
+
+1) range: 0 to 3.3 V
+   resolution: 4096
+   precision: 0.8 mV
+   
+2) Software-triggered interrupts (start the interrupt in the user program),
+or timer-triggered (use systick or another system timer)
+
+3) We used the first method; we toggled an LED on-off-on, and measure the time between off-on.
+  The second method is somewhat more accurate since it includes the push and pop before and after the ISR.
+  
+4) 47.5 ns
+
+5) assuming 80 Mhz clock freq.
+  range: 0 to 209.715 ms
+  resolution: 2 ^ 24
+  precision: 12.5 ns (clock period)

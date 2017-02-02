@@ -78,6 +78,16 @@ int main(void) {
       break;
     } else if(strcmp((const char*) currTok, "adc") == 0)
       adc_runComm(strtok(NULL, " \t"));
+    else if(strcmp((const char*) inBuff, "os on") == 0)
+      OS_on();
+    else if(strcmp((const char*) inBuff, "os count") == 0)
+      OS_ReadPeriodicTime();
+    else if(strcmp((const char*) inBuff, "os clear") == 0)
+      OS_ClearPeriodicTime();
+    else if(strcmp((const char*) inBuff, "lcd on") == 0)
+      ST7735_InitR(INITR_REDTAB);
+    else if(strcmp((const char*) inBuff, "lcd echo") == 0) //hard fault hazard
+
     else if(strcmp((const char*) currTok, "") != 0)
       UART_OutStringCRLF("Command not found. Enter \"quit\" to quit.");
   }

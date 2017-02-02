@@ -1,4 +1,4 @@
-// ST7735TestMain.c
+    // ST7735TestMain.c
 
 #include <stdio.h>
 #include <stdint.h>
@@ -17,7 +17,7 @@
 
 void dummy(void){PF1 ^= RED;}
 
-int main(void){
+int notmain(void){
   PLL_Init(Bus80MHz);                  // set system clock to 80 MHz
   ST7735_InitR(INITR_REDTAB);
   

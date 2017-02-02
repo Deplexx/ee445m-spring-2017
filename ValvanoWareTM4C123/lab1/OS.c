@@ -8,6 +8,10 @@
 void (*PeriodicTask)(void);   // user function
 uint32_t count;
 
+void OS_on() {
+    OS_AddPeriodicThread(dummy, 1000, 4);
+}
+
 // ***** OS_AddPeriodicThread *****
 // Sets thread to run every periodically every ms
 // Input: task - function to run
