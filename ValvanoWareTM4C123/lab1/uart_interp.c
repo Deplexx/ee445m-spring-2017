@@ -32,30 +32,41 @@
 #include <string.h>
 
 #include "ADCT2ATrigger.h"
+#include "OS.h"
 #include "PLL.h"
+#include "ST7735_.h"
 #include "UART.h"
 
 #define IN_BUFF_SIZE 256
 char inBuff[IN_BUFF_SIZE];
 
-#define TEST_BUFF_SIZE 20
-uint16_t buff[TEST_BUFF_SIZE];
+#define TEST_BUFF_SIZE 256
+uint16_t adcBuff[TEST_BUFF_SIZE];
+
+static inline int nextInt() {
+  return atoi(strtok(NULL, " \t"));
+}
+
+static void adc_runComm(const char *comm);
+static void os_runComm(const char *comm);
 
 int notmain(void) {
     PLL_Init(Bus50MHz);       // set system clock to 50 MHz
     UART_Init();              // initialize UART
-    ADC_Collect(0, 5000000, buff, TEST_BUFF_SIZE);
+    ADC_Collect(0, 5000000, adcBuff, TEST_BUFF_SIZE);
 
     for(int i = 0; i < TEST_BUFF_SIZE; ++i) {
-        UART_OutUDec(buff[i]);
+        UART_OutUDec(adcBuff[i]);
         UART_OutCRLF();
     }
+
+    return 0;
 }
 
 int main(void) {
   char *currTok;
 
-  PLL_Init(Bus50MHz);       // set system clock to 50 MHz
+  PLL_Init(Bus80MHz);       // set system clock to 50 MHz
   UART_Init();              // initialize UART
 
   UART_OutCRLF();
@@ -78,17 +89,90 @@ int main(void) {
       break;
     } else if(strcmp((const char*) currTok, "adc") == 0)
       adc_runComm(strtok(NULL, " \t"));
-    else if(strcmp((const char*) inBuff, "os on") == 0)
-      OS_on();
-    else if(strcmp((const char*) inBuff, "os count") == 0)
-      OS_ReadPeriodicTime();
-    else if(strcmp((const char*) inBuff, "os clear") == 0)
-      OS_ClearPeriodicTime();
+    else if(strcmp((const char*) currTok, "os") == 0)
+      os_runComm(strtok(NULL, " \t"));
     else if(strcmp((const char*) inBuff, "lcd on") == 0)
       ST7735_InitR(INITR_REDTAB);
     else if(strcmp((const char*) inBuff, "lcd echo") == 0) //hard fault hazard
-
+    {}
     else if(strcmp((const char*) currTok, "") != 0)
       UART_OutStringCRLF("Command not found. Enter \"quit\" to quit.");
   }
+
+  return 0;
+}
+
+static inline void warnAdcOff(void) {
+  UART_OutStringCRLF("ADC is off. Enable it with \"adc on [channel (0-11)] [freq in Hz (1-125000)].\"");
+}
+
+static void adc_runComm(const char *comm) {
+    char *currComm = strtok(comm, " \t");
+
+    if(strcmp(currComm, "on") == 0) {
+        int channel = nextInt();
+        int fs = nextInt();
+
+        if(channel == NULL)
+          channel = 0;
+        else if(channel < 0) {
+          UART_OutStringCRLF("Invalid channel number. Enter a number <= 11 && >= 0");
+          return;
+        }
+
+        if(fs == NULL)
+          fs = 1;
+        else if(fs < 1) {
+          UART_OutStringCRLF("Invalid frequency. Enter a number <= 11 && >= 0");
+          return;
+        }
+
+        UART_OutStringCRLF("Turning ADC0 on...");
+        ADC_TurnOn(channel, fs);
+    } else if(strcmp(currComm, "print") == 0) {
+        UART_OutString("ADC Output: ");
+        UART_OutUDec(ADC_Val());
+        UART_OutCRLF();
+
+        return;
+    } else if(strcmp(currComm, "collect")) {
+        int channelNum = nextInt();
+        int fs = nextInt();
+        int numberOfSamples = nextInt();
+
+        if(numberOfSamples == NULL)
+            numberOfSamples = 1;
+        else if(numberOfSamples > 256) {
+          UART_OutStringCRLF("Invalid number of samples; enter a number >= 1.");
+          return;
+        }
+
+        if(channelNum == NULL)
+          channelNum = 0;
+        else {
+          UART_OutStringCRLF("Invalid channel number; enter a number <= 11 && >= 0");
+          return;
+        }
+
+        if(fs == NULL)
+          fs = 1;
+        if(fs < 1) {
+          UART_OutStringCRLF("Invalid sample frequency; enter a number <= 125000 && >= 1.");
+          return;
+        }
+
+        ADC_Collect(channelNum, fs, adcBuff, numberOfSamples);
+    } else
+      UART_OutStringCRLF("Invalid adc command. Type \"adc -h\" for a list of commands.");
+}
+
+static void os_runComm(const char *comm) {
+    char *currTok = strtok(comm, " \t");
+
+    if(strcmp((const char*) currTok, "on") == 0)
+      OS_On();
+    else if(strcmp((const char*) currTok, "count") == 0)
+      OS_ReadPeriodicTime();
+    else if(strcmp((const char*) currTok, "clear") == 0)
+      OS_ClearPeriodicTime();
 }

@@ -17,7 +17,7 @@
 
 void dummy(void){PF1 ^= RED;}
 
-int notmain(void){
+static int notmain(void){
   PLL_Init(Bus80MHz);                  // set system clock to 80 MHz
   ST7735_InitR(INITR_REDTAB);
   

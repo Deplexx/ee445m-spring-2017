@@ -22,9 +22,7 @@
  http://users.ece.utexas.edu/~valvano/
  */
 
-void adc_init(void);
-
-void adc_runComm(const char *comm);
+int ADC_TurnOn(uint8_t channelNum, uint32_t fs);
 
 // This initialization function sets up the ADC according to the
 // following parameters.  Any parameters not explicitly listed
@@ -45,6 +43,8 @@ void adc_runComm(const char *comm);
 // SS3 interrupts: enabled and promoted to controller
 // channelNum must be 0-11 (inclusive) corresponding to Ain0 through Ain11
 void ADC0_InitTimer2ATriggerSeq3(uint8_t channelNum, uint32_t period);
+
+int ADC_Val(void);
 
 int ADC_Collect(uint32_t channelNum,
                 uint32_t fs,

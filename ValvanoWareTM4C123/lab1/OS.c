@@ -8,7 +8,9 @@
 void (*PeriodicTask)(void);   // user function
 uint32_t count;
 
-void OS_on() {
+static void dummy(void) {}
+
+void OS_On() {
     OS_AddPeriodicThread(dummy, 1000, 4);
 }
 

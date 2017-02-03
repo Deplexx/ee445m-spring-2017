@@ -21,15 +21,12 @@
  For more information about my classes, my research, and my books, see
  http://users.ece.utexas.edu/~valvano/
  */
-#include <stdbool.h>
+
 #include <stdint.h>
 #include <stdlib.h>
-#include <string.h>
 
 #include "../inc/tm4c123gh6pm.h"
 #include "ADCT2ATrigger.h"
-#include "FIFO.h"
-#include "UART.h"
 
 #define NVIC_EN0_INT17          0x00020000  // Interrupt 17 enable
 
@@ -77,15 +74,10 @@ long StartCritical (void);    // previous I bit, disable interrupts
 void EndCritical(long sr);    // restore I bit to previous value
 void WaitForInterrupt(void);  // low power mode
 
-#define FIFOSIZE   16         // size of the FIFO (must be power of 2)
-#define FIFOSUCCESS 1         // return value on success
-#define FIFOFAIL    0         // return value on failure
-                              // create index implementation FIFO (see FIFO.h)
-
 volatile uint16_t adcVal;
-volatile uint32_t ADC_BUFF_SIZE = 0; // must be initialized to 0 (or ADC ISR will likely cause hardfault)
-volatile uint16_t *adcBuff;
-bool adcOn = false;
+
+int ADC_BUFF_SIZE;
+uint16_t *adcBuff;
 
 // There are many choices to make when using the ADC, and many
 // different combinations of settings will all do basically the
@@ -106,51 +98,23 @@ bool adcOn = false;
 // measurement.
 //
 
-inline void warnIsOff(void) {
-  UART_OutStringCRLF("ADC is off. Enable it with \"adc on [channel] [freq in Hz].\"");
-}
+int ADC_TurnOn(uint8_t channelNum, uint32_t fs) {
+    int d, period;
 
-void adc_runComm(const char *comm) {
-    char *currComm;
+    if(channelNum > 11)
+      return 0;
 
-    if(strcmp((currComm = strtok(comm, " \t")), "on") == 0) {
-        int channel, freq;
-        int div, d;
+    if((d = (fs - (fs % 100))) <= 0)
+      d = 1;
 
-        if((channel = atoi(strtok(NULL, " \t"))) == NULL)
-          channel = 0;
+    period = 50000000 / d;
 
-        if(channel < 0)
-          channel = 0;
+    if(period < 400) // bus period = 50000000; 400 = 50000000 / (max fs = 125 KHz)
+      return 0;
 
-        if((freq = atoi(strtok(NULL, " \t"))) == NULL)
-          freq = 1;
-        else if(freq < 1)
-          freq = 1;
+    ADC0_InitTimer2ATriggerSeq3(channelNum, period);
 
-        if((d = (freq - (freq % 100))) <= 0)
-          d = 1;
-
-        div = 50000000 / d;
-
-        if(div < 400) // bus period = 50000000; 400 = 50000000 / (max freq = 125 KHz)
-          div = 400;
-
-        UART_OutStringCRLF("Turning ADC0 on...");
-        ADC0_InitTimer2ATriggerSeq3(channel, div);
-
-        adcOn = true;
-    } else if(strcmp(currComm, "print") == 0) {
-        if(adcOn) {
-            UART_OutString("ADC Output: ");
-            UART_OutUDec(adcVal);
-            UART_OutCRLF();
-
-            return;
-        } else
-          warnIsOff();
-    } else
-      UART_OutStringCRLF("Invalid adc command. Type \"adc -help\" for a list of commands.");
+    return 1;
 }
 
 // This initialization function sets up the ADC according to the
@@ -289,8 +253,6 @@ void ADC0_InitTimer2ATriggerSeq3(uint8_t channelNum, uint32_t period){
   NVIC_PRI4_R = (NVIC_PRI4_R&0xFFFF00FF)|0x00004000; //priority 2
   NVIC_EN0_R = 1<<17;              // enable interrupt 17 in NVIC
   EnableInterrupts();
-
-  UART_OutStringCRLF("Init complete.");
 }
 void ADC0_InitTimer2ATriggerSeq3PD3(uint32_t period){
   volatile uint32_t delay;
@@ -332,28 +294,30 @@ void ADC0Seq3_Handler(void){
     adcBuff[--ADC_BUFF_SIZE] = adcVal;
 }
 
+int ADC_Val(void) {
+    return (adcVal * 3000) >> 12;
+}
+
 int ADC_Collect(uint32_t channelNum,
                 uint32_t fs,
                 uint16_t buffer[],
                 uint32_t numberOfSamples) {
     if(channelNum > 11)
-      UART_OutStringCRLF("Invalid channel; enter a number <= 11 && >= 0.");
+      return 0;
     else if(fs < 1)
-      UART_OutStringCRLF("Invalid sample frequency; enter a number >= 1.");
+      return 0;
     else if(buffer == NULL)
-      UART_OutStringCRLF("Buffer is NULL; allocate a valid buffer.");
+      return 0;
     else if(numberOfSamples < 1)
-      UART_OutStringCRLF("Invalid number of samples; enter a number >= 1.");
+      return 0;
     else {
       ADC_BUFF_SIZE = numberOfSamples;
       adcBuff = buffer;
 
-      ADC0_InitTimer2ATriggerSeq3(channelNum, fs);
+      ADC_TurnOn(channelNum, fs);
 
       while(ADC_BUFF_SIZE > 0) {}
 
       return 1;
     }
-
-    return 0;
 }

@@ -1,5 +1,7 @@
 // OS.h
 
+void OS_On();
+
 // ***** OS_AddPeriodicThread *****
 // Sets thread to run every periodically every ms
 // Input: task - function to run
