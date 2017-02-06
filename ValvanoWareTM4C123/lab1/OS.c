@@ -4,13 +4,36 @@
 #include <stdint.h>
 #include "../inc/tm4c123gh6pm.h"
 #include "OS.h"
+
+#define PF1       (*((volatile unsigned long *)0x40025008))
+#define PF2       (*((volatile unsigned long *)0x40025010))
+#define PF3       (*((volatile unsigned long *)0x40025020))
+#define LEDS      (*((volatile unsigned long *)0x40025038))
+#define RED       0x02
+#define BLUE      0x04
+#define GREEN     0x08
+
 // ***** GLOBALS *****
 void (*PeriodicTask)(void);   // user function
 uint32_t count;
 
-static void dummy(void) {}
+static void dummy(void){
+    PF1 ^= RED;
+}
 
 void OS_On() {
+    SYSCTL_RCGCGPIO_R |= 0x00000020;  // 1) activate clock for Port F
+    volatile int delay = SYSCTL_RCGCGPIO_R;        // allow time for clock to start
+    GPIO_PORTF_LOCK_R = 0x4C4F434B;   // 2) unlock GPIO Port F
+    GPIO_PORTF_CR_R = 0x1F;           // allow changes to PF4-0
+    // only PF0 needs to be unlocked, other bits can't be locked
+    GPIO_PORTF_AMSEL_R = 0x00;        // 3) disable analog on PF
+    GPIO_PORTF_PCTL_R = 0x00000000;   // 4) PCTL GPIO on PF4-0
+    GPIO_PORTF_DIR_R = 0x0E;          // 5) PF4,PF0 in, PF3-1 out
+    GPIO_PORTF_AFSEL_R = 0x00;        // 6) disable alt funct on PF7-0
+    GPIO_PORTF_PUR_R = 0x11;          // enable pull-up on PF0 and PF4
+    GPIO_PORTF_DEN_R = 0x1F;          // 7) enable digital I/O on PF4-0
+
     OS_AddPeriodicThread(dummy, 1000, 4);
 }
 

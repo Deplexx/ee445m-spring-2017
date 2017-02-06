@@ -15,7 +15,7 @@
 #define BLUE      0x04
 #define GREEN     0x08
 
-void dummy(void){PF1 ^= RED;}
+static void dummy(void){PF1 ^= RED;}
 
 static int notmain(void){
   PLL_Init(Bus80MHz);                  // set system clock to 80 MHz

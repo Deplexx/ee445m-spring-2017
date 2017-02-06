@@ -43,12 +43,15 @@ char inBuff[IN_BUFF_SIZE];
 #define TEST_BUFF_SIZE 256
 uint16_t adcBuff[TEST_BUFF_SIZE];
 
+
+
 static inline int nextInt() {
   return atoi(strtok(NULL, " \t"));
 }
 
 static void adc_runComm(const char *comm);
 static void os_runComm(const char *comm);
+static void lcd_runComm(const char *comm);
 
 int notmain(void) {
     PLL_Init(Bus50MHz);       // set system clock to 50 MHz
@@ -91,19 +94,13 @@ int main(void) {
       adc_runComm(strtok(NULL, " \t"));
     else if(strcmp((const char*) currTok, "os") == 0)
       os_runComm(strtok(NULL, " \t"));
-    else if(strcmp((const char*) inBuff, "lcd on") == 0)
-      ST7735_InitR(INITR_REDTAB);
-    else if(strcmp((const char*) inBuff, "lcd echo") == 0) //hard fault hazard
-    {}
+    else if(strcmp((const char*) currTok, "lcd") == 0)
+      lcd_runComm(strtok(NULL, " \t"));
     else if(strcmp((const char*) currTok, "") != 0)
       UART_OutStringCRLF("Command not found. Enter \"quit\" to quit.");
   }
 
   return 0;
-}
-
-static inline void warnAdcOff(void) {
-  UART_OutStringCRLF("ADC is off. Enable it with \"adc on [channel (0-11)] [freq in Hz (1-125000)].\"");
 }
 
 static void adc_runComm(const char *comm) {
@@ -171,8 +168,31 @@ static void os_runComm(const char *comm) {
 
     if(strcmp((const char*) currTok, "on") == 0)
       OS_On();
-    else if(strcmp((const char*) currTok, "count") == 0)
-      OS_ReadPeriodicTime();
-    else if(strcmp((const char*) currTok, "clear") == 0)
+    else if(strcmp((const char*) currTok, "count") == 0) {
+      UART_OutString("OS task count: "); UART_OutUDec(OS_ReadPeriodicTime()); UART_OutCRLF();
+    }
+    else if(strcmp((const char*) currTok, "clear") == 0) {
+      UART_OutStringCRLF("Clearing os count...");
       OS_ClearPeriodicTime();
+    }
+    else
+        UART_OutStringCRLF("Invalid os command. Type \"os -h\" for a list of commands.");
+}
+
+static void lcd_runComm(const char *comm) {
+    char *currTok = comm;
+
+    if(strcmp((const char*) currTok, "on") == 0)
+        ST7735_InitR(INITR_REDTAB);
+    else if(strcmp((const char*) currTok, "echo") == 0) {
+        char* str = strtok(NULL, " \t");
+
+        if(str == NULL) {
+            UART_OutStringCRLF("Invalid message; enter a valid one.");
+            return;
+        }
+
+        ST7735_OutString(str);
+    } else
+      UART_OutStringCRLF("Invalid lcd command. Type \"lcd -h\" for a list of commands.");
 }
