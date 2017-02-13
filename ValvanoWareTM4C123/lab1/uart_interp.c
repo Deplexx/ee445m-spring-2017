@@ -188,7 +188,8 @@ static void lcd_runComm(const char *comm) {
         int device = nextInt();
         int line = nextInt();
         char* string = strtok(NULL, " \t");
-        uint32_t value = nextInt();
+        char *valStr = strtok(NULL, " \t");
+        uint32_t value = atoi(valStr);
 
         if(device == NULL)
             device = 0;
@@ -209,10 +210,11 @@ static void lcd_runComm(const char *comm) {
             return;
         }
 
-        if(value == NULL) {
+        if(valStr == NULL) {
             UART_OutStringCRLF("You must provide a value.");
             return;
         }
+
 
         ST7735_Message(device, line, string, value);
     } else if(strcmp(currTok, "clear") == 0)
