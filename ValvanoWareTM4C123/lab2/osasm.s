@@ -33,6 +33,7 @@
         EXPORT  OS_EnableInterrupts
         EXPORT  StartOS
         EXPORT  SysTick_Handler
+		EXPORT  PendSV_Handler
 
 
 OS_DisableInterrupts
@@ -47,7 +48,6 @@ OS_EnableInterrupts
 
 SysTick_Handler                ; 1) Saves R0-R3,R12,LR,PC,PSR
     CPSID   I                  ; 2) Prevent interrupt during switch
-	
 	LDR     R0, =PF1
 	LDR     R0, [R0]
 	LDR     R1, [R0]
@@ -74,9 +74,37 @@ SysTick_Handler                ; 1) Saves R0-R3,R12,LR,PC,PSR
     CPSIE   I                  ; 9) tasks run with interrupts enabled
     BX      LR                 ; 10) restore R0-R3,R12,LR,PC,PSR
 	
+PendSV_Handler                ; 1) Saves R0-R3,R12,LR,PC,PSR
+    CPSID   I                  ; 2) Prevent interrupt during switch
+	LDR     R0, =PF2
+	LDR     R0, [R0]
+	LDR     R1, [R0]
+	EOR     R1, #0x04
+	STR     R1, [R0]
+	EOR     R1, #0x04
+	STR     R1, [R0]
+    PUSH    {R4-R11}           ; 3) Save remaining regs r4-11
+	MOV     R0, #0xD000D000
+    PUSH    {R0}
+	ADD     SP, #4
+    LDR     R0, =RunPt         ; 4) R0=pointer to RunPt, old thread
+    LDR     R1, [R0]           ;    R1 = RunPt
+    STR     SP, [R1]           ; 5) Save SP into TCB
+    LDR     R1, [R1,#4]        ; 6) R1 = RunPt->next
+    STR     R1, [R0]           ;    RunPt = R1
+    LDR     SP, [R1]           ; 7) new thread SP; SP = RunPt->sp;
+    POP     {R4-R11}           ; 8) restore regs r4-11
+	LDR     R0, =PF2
+	LDR     R0, [R0]
+	LDR     R1, [R0]
+	EOR     R1, #0x04
+	STR     R1, [R0]
+    CPSIE   I                  ; 9) tasks run with interrupts enabled
+    BX      LR                 ; 10) restore R0-R3,R12,LR,PC,PSR
+	
     ALIGN
-PF1
-    DCD     0x40025008
+PF1    DCD     0x40025008
+PF2    DCD     0x40025010
 
 StartOS
     LDR     R0, =RunPt         ; currently running thread

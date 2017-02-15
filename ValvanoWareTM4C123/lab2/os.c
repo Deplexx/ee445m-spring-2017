@@ -50,12 +50,14 @@ struct tcb{
   int32_t *sp;       // pointer to stack (valid for threads not running
   struct tcb *next;  // linked-list pointer
   struct tcb *prev;  // doubly-linked
+  unsigned long id;
 };
 typedef struct tcb tcbType;
 tcbType tcbs[MAXTHREADS];
 tcbType *RunPt;
 int32_t Stacks[MAXTHREADS][STACKSIZE];
 int numThreads = 0;
+int currentId = 0;
 
 // ******** OS_Init ************
 // initialize operating system, disable interrupts until OS_Launch
@@ -88,7 +90,7 @@ void SetInitialStack(int i){
   Stacks[i][STACKSIZE-13] = 0x07070707;  // R7
   Stacks[i][STACKSIZE-14] = 0x06060606;  // R6
   Stacks[i][STACKSIZE-15] = 0x05050505;  // R5
-  Stacks[i][STACKSIZE-16] = 0x04040404;  // R4
+  Stacks[i][STACKSIZE-16] = 0x04040404;  // 
 }
 
 //******** OS_AddThread ***************
@@ -124,15 +126,18 @@ void OS_Launch(uint32_t theTimeSlice){
 
 void OS_Suspend(void){
   //1 give full time slice for next thread
-  NVIC_ST_CURRENT_R = 0;
+  //NVIC_ST_CURRENT_R = 0;
   //2 trigger systick
   NVIC_INT_CTRL_R |= 0x04000000;
+  //2 trigger pendsv
+  //NVIC_INT_CTRL_R |= 0x10000000;
 }
 
-int OS_AddThread(void(*task)(void)){
+int OS_AddThread(void(*task)(void), unsigned long stackSize, unsigned long priority){
   int32_t status;
   status = StartCritical();
-  SetInitialStack(numThreads); Stacks[numThreads][STACKSIZE-2] = (int32_t)(task); // PC
+  SetInitialStack(numThreads); Stacks[numThreads][STACKSIZE-2] = (int32_t)(task); // set PC
+  tcbs[numThreads].id = currentId;
   
   if(numThreads>0 && numThreads<MAXTHREADS){
     tcbs[numThreads-1].next = &tcbs[numThreads];
@@ -147,6 +152,11 @@ int OS_AddThread(void(*task)(void)){
     return 0;
   }
   numThreads++;
+  currentId++;
   EndCritical(status);
   return 1;               // successful
+}
+
+unsigned long OS_Id(void){
+  return RunPt->id;
 }
