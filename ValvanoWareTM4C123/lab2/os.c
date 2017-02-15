@@ -22,6 +22,7 @@
  http://users.ece.utexas.edu/~valvano/
  */
 
+#include <stdbool.h>
 #include <stdint.h>
 #include "os.h"
 #include "PLL.h"
@@ -43,6 +44,10 @@ void OS_EnableInterrupts(void);  // Enable interrupts
 int32_t StartCritical(void);
 void EndCritical(int32_t primask);
 void StartOS(void);
+int TestAndIncrementInt32(int32_t *n);
+int TestAndDecrementInt32(int32_t *n);
+
+static void wait(Sema4Type *semaPt, bool bin);
 
 #define MAXTHREADS  10        // maximum number of threads
 #define STACKSIZE   100      // number of 32-bit words in stack
@@ -159,4 +164,41 @@ int OS_AddThread(void(*task)(void), unsigned long stackSize, unsigned long prior
 
 unsigned long OS_Id(void){
   return RunPt->id;
+}
+
+void OS_InitSemaphore(Sema4Type *semaPt, long value) {
+    semaPt->Value = value;
+}
+
+void OS_Wait(Sema4Type *semaPt) {
+    wait(semaPt, false);
+}
+
+void OS_Signal(Sema4Type *semaPt) {
+    while(true)
+        if(TestAndIncrementInt32(&semaPt->Value) == 0)
+            break;
+}
+
+void OS_bWait(Sema4Type *semaPt) {
+    wait(semaPt, true);
+}
+
+void OS_bSignal(Sema4Type *semaPt) {
+    OS_Signal(semaPt);
+}
+
+static void wait(Sema4Type *semaPt, bool bin) {
+    while(true) {
+        if(bin ? semaPt->Value != 0 : semaPt->Value > 0)
+            if(TestAndDecrementInt32(&semaPt->Value) == 0)
+                break;
+        else {
+            while(bin ? semaPt->Value == 0 : semaPt->Value <= 0)
+                OS_Suspend();
+
+            if(TestAndDecrementInt32(&semaPt->Value) == 0)
+                break;
+        }
+    }
 }

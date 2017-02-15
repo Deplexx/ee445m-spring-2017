@@ -29,12 +29,15 @@
         PRESERVE8
 
         EXTERN  RunPt            ; currently running thread
+        
         EXPORT  OS_DisableInterrupts
         EXPORT  OS_EnableInterrupts
         EXPORT  StartOS
         EXPORT  SysTick_Handler
-		EXPORT  PendSV_Handler
+		    EXPORT  PendSV_Handler
+		    EXPORT  OS_Wait
 
+        EXTERN  OS_Suspend
 
 OS_DisableInterrupts
         CPSID   I
@@ -118,6 +121,28 @@ StartOS
     POP     {R1}               ; discard PSR
     CPSIE   I                  ; Enable interrupts at processor level
     BX      LR                 ; start first thread
+
+OS_Wait
+    PUSH       {LR}
+;;169           IF(SEMAPT->VALUE > 0)
+    LDR        R2, [R0]
+    CMP        R2, #0
+    BLE        Spin
+;;170               --SEMAPT->VALUE;
+    LDR        R1, [R0] ;;sema->Value
+    ;LDR        R2, [R1]
+    SUBS       R1, R1, #1
+    STR        R2, [R1]
+    POP        {PC}    
+;;173                   OS_SUSPEND();
+Suspend
+    BL         OS_Suspend
+;;172               WHILE(SEMAPT->VALUE == 0)
+Spin
+    LDR        R0, [SP]
+    LDR        R0, [R0]
+    CMP        R0, #0
+    BEQ        Suspend
 
     ALIGN
     END

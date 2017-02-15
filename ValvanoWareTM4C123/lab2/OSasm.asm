@@ -33,6 +33,8 @@
         .global  OS_EnableInterrupts
         .global  StartOS
         .global  SysTick_Handler
+        .global  TestAndIncrementInt32
+        .global  TestAndDecrementInt32
 
 
 OS_DisableInterrupts:  .asmfunc
@@ -73,4 +75,35 @@ StartOS:  .asmfunc
     CPSIE   I                  ; Enable interrupts at processor level
     BX      LR                 ; start first thread
    .endasmfunc
+
+; int32_t AtomicReadInt32(int32_t *n);
+AtomicReadInt32: .asmfunc
+    LDREX R0, [R0]
+    BX LR
+    .endasmfunc
+
+; int AtomicWriteInt32(int32_t *n, int32_t v);
+AtomicWriteInt32: .asmfunc
+    STREX R2, R1, [R0] ; ret 0 if successful
+    MOV R0, R2
+    BX LR
+    .endasmfunc
+
+; int TestAndIncrementInt32(int32_t *n);
+TestAndIncrementInt32: .asmfunc
+    LDREX R1, [R0]
+    ADD R1, R1, #1
+    STREX R2, R1, [R0] ; ret 0 if successful
+    MOV R0, R2
+    BX LR
+    .endasmfunc
+
+; int TestAndIncrementInt32(int32_t *n);
+TestAndDecrementInt32: .asmfunc
+    LDREX R1, [R0]
+    ADD R1, R1, #-1
+    STREX R2, R1, [R0] ; ret 0 if successful
+    MOV R0, R2
+    BX LR
+    .endasmfunc
    .end

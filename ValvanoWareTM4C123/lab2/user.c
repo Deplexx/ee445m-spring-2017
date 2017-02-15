@@ -28,10 +28,10 @@
  */
 
 #include <stdint.h>
-#include "inc/tm4c123gh6pm.h"
+#include "../inc/tm4c123gh6pm.h"
 #include "os.h"
-#include "adc.h"
-#include "st7735.h"
+#include "ADC.h"
+#include "ST7735.h"
 
 /*
 #define TIMESLICE               TIME_2MS    // thread switch time in system time units
@@ -325,5 +325,6 @@ int Testmain3(void){   // Testmain3
 */
 
 int main(void){
-  Testmain1();
+  Sema4Type sema;
+  OS_Wait(&sema);
 }
