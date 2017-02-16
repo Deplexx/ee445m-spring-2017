@@ -46,8 +46,10 @@ void EndCritical(int32_t primask);
 void StartOS(void);
 int TestAndIncrementInt32(int32_t *n);
 int TestAndDecrementInt32(int32_t *n);
+int TestAndSetInt32(int32_t *n, int32_t v);
 
 static void wait(Sema4Type *semaPt, bool bin);
+static void signal(Sema4Type *semaPt, bool bin);
 
 #define MAXTHREADS  10        // maximum number of threads
 #define STACKSIZE   100      // number of 32-bit words in stack
@@ -175,9 +177,7 @@ void OS_Wait(Sema4Type *semaPt) {
 }
 
 void OS_Signal(Sema4Type *semaPt) {
-    while(true)
-        if(TestAndIncrementInt32(&semaPt->Value) == 0)
-            break;
+    signal(semaPt, false);
 }
 
 void OS_bWait(Sema4Type *semaPt) {
@@ -185,20 +185,26 @@ void OS_bWait(Sema4Type *semaPt) {
 }
 
 void OS_bSignal(Sema4Type *semaPt) {
-    OS_Signal(semaPt);
+    signal(semaPt, true);
 }
 
 static void wait(Sema4Type *semaPt, bool bin) {
     while(true) {
-        if(bin ? semaPt->Value != 0 : semaPt->Value > 0)
-            if(TestAndDecrementInt32(&semaPt->Value) == 0)
+        while(semaPt->Value < 0) {}
+        if(bin)
+            if(TestAndSetInt32(&semaPt->Value, 0) == 0)
                 break;
-        else {
-            while(bin ? semaPt->Value == 0 : semaPt->Value <= 0)
-                OS_Suspend();
-
-            if(TestAndDecrementInt32(&semaPt->Value) == 0)
-                break;
-        }
+        else if(TestAndDecrementInt32(&semaPt->Value) == 0)
+            break;
     }
+}
+
+static void signal(Sema4Type *semaPt, bool bin) {
+    while(true)
+        if(bin)
+            if(TestAndSetInt32(&semaPt->Value, 0) == 0)
+                break;
+        else
+            if(TestAndIncrementInt32(&semaPt->Value) == 0)
+                break;
 }

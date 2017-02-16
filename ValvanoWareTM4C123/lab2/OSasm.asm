@@ -35,6 +35,7 @@
         .global  SysTick_Handler
         .global  TestAndIncrementInt32
         .global  TestAndDecrementInt32
+        .global   TestAndSetInt32
 
 
 OS_DisableInterrupts:  .asmfunc
@@ -106,4 +107,13 @@ TestAndDecrementInt32: .asmfunc
     MOV R0, R2
     BX LR
     .endasmfunc
+
+; int TestAndSetInt32(int32_t *n, int32_t v);
+TestAndSetInt32: .asmfunc
+    LDREX R3, [R0]
+    STREX R2, R1, [R0] ; ret 0 if successful
+    MOV R0, R2
+    BX LR
+    .endasmfunc
+
    .end
