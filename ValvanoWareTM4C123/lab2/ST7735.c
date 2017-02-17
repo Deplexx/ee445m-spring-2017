@@ -92,6 +92,7 @@
 #include <stdint.h>
 #include "ST7735.h"
 #include "../inc/tm4c123gh6pm.h"
+#include "os.h"
 
 // 16 rows (0 to 15) and 21 characters (0 to 20)
 // Requires (11 + size*size*6*8) bytes of transmission for each character
@@ -222,6 +223,9 @@ uint16_t StTextColor = ST7735_YELLOW;
 
 #define ST7735_GMCTRP1 0xE0
 #define ST7735_GMCTRN1 0xE1
+
+//lock
+Sema4Type sema;
 
 // standard ascii 5x7 font
 // originally from glcdfont.c from Adafruit project
@@ -704,6 +708,8 @@ void static commandList(const uint8_t *addr) {
 
 // Initialization code common to both 'B' and 'R' type displays
 void static commonInit(const uint8_t *cmdList) {
+  OS_InitSemaphore(&sema, 0); //lock
+
   volatile uint32_t delay;
   ColStart  = RowStart = 0; // May be overridden in init func
 
@@ -1622,13 +1628,14 @@ void Output_Color(uint32_t newColor){ // Set color of future output
 void ST7735_Message(int device, int line, char *string, int value){
   int y, x, div;
   
+  OS_bWait(&sema);
+
   if(device>1 || device<0) return;
   if(line>7 || line<0) return;
   
   x=0;
   y = (device ? 80:0) + line*10;
 	div = 1;
-  
   while(*string){
     ST7735_DrawChar(x*6, y, *string, ST7735_WHITE, ST7735_BLACK, 1);
     string++;
@@ -1657,5 +1664,6 @@ void ST7735_Message(int device, int line, char *string, int value){
 		ST7735_DrawChar(x*6, y, outchar, ST7735_WHITE, ST7735_BLACK, 1);
 		x++;
 	}
+    OS_bSignal(&sema);
 }
 

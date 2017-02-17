@@ -53,34 +53,34 @@ void OS_Init(void);
 void OS_InitSemaphore(Sema4Type *semaPt, long value);
 
 // ******** OS_Wait ************
-// decrement semaphore 
+// decrement semaphore
 // Lab2 spinlock
 // Lab3 block if less than zero
 // input:  pointer to a counting semaphore
 // output: none
-void OS_Wait(Sema4Type *semaPt); 
+void OS_Wait(Sema4Type *semaPt);
 
 // ******** OS_Signal ************
-// increment semaphore 
+// increment semaphore
 // Lab2 spinlock
-// Lab3 wakeup blocked thread if appropriate 
+// Lab3 wakeup blocked thread if appropriate
 // input:  pointer to a counting semaphore
 // output: none
-void OS_Signal(Sema4Type *semaPt); 
+void OS_Signal(Sema4Type *semaPt);
 
 // ******** OS_bWait ************
 // Lab2 spinlock, set to 0
 // Lab3 block if less than zero
 // input:  pointer to a binary semaphore
 // output: none
-void OS_bWait(Sema4Type *semaPt); 
+void OS_bWait(Sema4Type *semaPt);
 
 // ******** OS_bSignal ************
 // Lab2 spinlock, set to 1
-// Lab3 wakeup blocked thread if appropriate 
+// Lab3 wakeup blocked thread if appropriate
 // input:  pointer to a binary semaphore
 // output: none
-void OS_bSignal(Sema4Type *semaPt); 
+void OS_bSignal(Sema4Type *semaPt);
 
 //******** OS_AddThread ***************
 // add three foregound threads to the scheduler

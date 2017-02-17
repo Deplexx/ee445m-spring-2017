@@ -334,42 +334,54 @@ Sema4Type sema;
 
 int done1 = 0;
 int done2 = 0;
+int done3 = 0;
 
 static void incr1(void) {
     incr();
-    done1 = 1;
-    while(true);
+    while(true)
+        PB3 ^= 8;
 }
 
 static void incr2(void) {
     incr();
-    done2 = 1;
-    while(true){}
+    while(true)
+        PB2 ^= 4;
+}
+
+static void incr3(void) {
+    incr();
+    while(true)
+        PB4 ^= 16;
 }
 
 static void incr(void) {
-    for(int i = 0; i < 100; ++i) {
+    for(int i = 0; i < 10000; ++i) {
         OS_bWait(&sema);
         ++c;
         OS_bSignal(&sema);
     }
+
+    ST7735_Message(0, c % 8, "", c);
 }
 
 static void done(void) {
-    while(!(done1 || done2)) {}
+    while(!(done1 || done2 || done3)) {}
 
     OS_DisableInterrupts();
-    ST7735_OutUDec(c);
+    ST7735_Message(0, 1, "", c);
     OS_EnableInterrupts();
 }
 
 int main(void){
+  PortB_Init();
   OS_Init();           // initialize, disable interrupts
   ST7735_InitR(INITR_REDTAB);
-  ST7735_OutUDec(c);
-  OS_InitSemaphore(&sema, 1);
+  //ST7735_OutUDec(c);
+  OS_InitSemaphore(&sema, 0);
   NumCreated += OS_AddThread(&incr1,128,1);
   NumCreated += OS_AddThread(&incr2,128,1);
-  NumCreated += OS_AddThread(&done,128,1);
+  NumCreated += OS_AddThread(&incr3,128,1);
+  //NumCreated += OS_AddThread(&Thread2b,128,1);
+  //NumCreated += OS_AddThread(&done,128,1);
   OS_Launch(TIME_2MS); // 100us, doesn't return, interrupts enabled in here
 }
