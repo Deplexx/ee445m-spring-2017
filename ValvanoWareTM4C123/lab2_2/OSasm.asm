@@ -84,7 +84,7 @@ OS_Wait_store_back:
 OS_Wait: .asmfunc
     LDREX R1, [R0]
     CMP R1, #0
-    BNE OS_Wait_store_back
+    BLT OS_Wait_store_back
     ADD R1, R1, #-1
     STREX R2, R1, [R0]
     CMP R2, #0
