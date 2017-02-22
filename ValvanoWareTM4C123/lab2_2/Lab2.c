@@ -321,7 +321,7 @@ unsigned long myId = OS_Id();
 
 
 //*******************final user main DEMONTRATE THIS TO TA**********
-int realmain(void){
+int main(void){
   OS_Init();           // initialize, disable interrupts
   PortE_Init();
   DataLost = 0;        // lost data between producer and consumer
@@ -333,7 +333,7 @@ int realmain(void){
   OS_Fifo_Init(128);    // ***note*** 4 is not big enough*****
 
 //*******attach background tasks***********
-  OS_AddSW1Task(&SW1Push,2);
+//  OS_AddSW1Task(&SW1Push,2);
 #if Lab3
   OS_AddSW2Task(&SW2Push,2);  // add this line in Lab 3
 #endif
@@ -343,7 +343,7 @@ int realmain(void){
   NumCreated = 0 ;
 // create initial foreground threads
   NumCreated += OS_AddThread(&Interpreter,128,2); 
-  NumCreated += OS_AddThread(&Consumer,128,1); 
+  NumCreated += OS_AddThread(&Consumer,128,1);
   NumCreated += OS_AddThread(&PID,128,3);  // Lab 3, make this lowest priority
  
   OS_Launch(TIME_2MS); // doesn't return, interrupts enabled in here

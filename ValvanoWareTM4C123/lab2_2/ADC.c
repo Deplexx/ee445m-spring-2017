@@ -27,7 +27,7 @@
 
 #include "../inc/tm4c123gh6pm.h"
 #include "ADC.h"
-#include "OS.h"
+#include "os.h"
 
 /*
 #define NVIC_EN0_INT17          0x00020000  // Interrupt 17 enable
@@ -184,6 +184,9 @@ void ADC_InitGPIO(uint32_t channelNum){
 void ADC_InitTimer2A(uint32_t period){
   SYSCTL_RCGCTIMER_R |= 0x04;   // activate timer2
   volatile int delay = SYSCTL_RCGCTIMER_R;   // allow time to finish activating
+  delay = SYSCTL_RCGCTIMER_R;   // allow time to finish activating
+  delay = SYSCTL_RCGCTIMER_R;   // allow time to finish activating
+  delay = SYSCTL_RCGCTIMER_R;   // allow time to finish activating
   TIMER2_CTL_R = 0x00000000;    // disable timer2A during setup
   TIMER2_CTL_R |= 0x00000020;   // enable timer2A trigger to ADC
   TIMER2_CFG_R = 0;             // configure for 32-bit timer mode
@@ -251,6 +254,9 @@ void ADC_InitADC0SS3_Timer(uint32_t channelNum){
 void ADC_InitADC0SS3_SW(uint32_t channelNum){
   SYSCTL_RCGCADC_R |= 0x01;
   volatile int delay = SYSCTL_RCGCTIMER_R;   // allow time to finish activating
+  delay = SYSCTL_RCGCTIMER_R;   // allow time to finish activating
+  delay = SYSCTL_RCGCTIMER_R;   // allow time to finish activating
+  delay = SYSCTL_RCGCTIMER_R;   // allow time to finish activating
   ADC0_PC_R = 0x01;         // configure for 125K samples/sec
   ADC0_SSPRI_R = 0x3210;    // sequencer 0 is highest, sequencer 3 is lowest
 
@@ -330,7 +336,9 @@ int ADC_Collect(uint32_t channelNum, uint32_t freq, void (*task)(unsigned long))
 void ADC0Seq2_Handler(void){
   ADC0_ISC_R = 0x04; // acknowledge ADC sequence 2 completion
   unsigned long ADC0SS2Value = ADC0_SSFIFO2_R & 0xFFF;
-  ADC0SS2Task(ADC0SS2Value);
+
+  if(ADC0SS2Task != NULL)
+      ADC0SS2Task(ADC0SS2Value);
 }
 
 void ADC0Seq3_Handler(void){

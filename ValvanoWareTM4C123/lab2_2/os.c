@@ -25,10 +25,13 @@
 #include <stdint.h>
 #include <stdlib.h>
 
+#include "../inc/tm4c123gh6pm.h"
+
 #include "FIFO.h"
 #include "LED.h"
 #include "os.h"
 #include "PLL.h"
+#include "UART.h"
 
 #define NVIC_ST_CTRL_R          (*((volatile uint32_t *)0xE000E010))
 #define NVIC_ST_CTRL_CLK_SRC    0x00000004  // Clock Source
@@ -91,6 +94,7 @@ void OS_Init(void){
   OS_DisableInterrupts();
   PLL_Init(Bus80MHz);         // set processor clock to 50 MHz
   //LED_Init();
+  UART_Init();
   
   //Initialize PORTF for LEDs and Switches
   SYSCTL_RCGCGPIO_R |= 0x00000020;  // 1) activate clock for Port F
@@ -375,7 +379,7 @@ void OS_InitSemaphore(Sema4Type *semaPt, long value) {
 }
 
 void OS_Fifo_Init(unsigned long size) { //size is ignored for lab 2
-    OS_InitSemaphore(&fifoFull, OS_FIFOSIZE);
+    OS_InitSemaphore(&fifoFull, OS_FIFOSIZE - 1);
     OS_InitSemaphore(&fifoEmpty, -1);
     OS_InitSemaphore(&fifoLock, 0);
     OSFifo_Init();

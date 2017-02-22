@@ -57,8 +57,8 @@ static void lcd_runComm(const char *comm);
 void Interpreter(void) {
   char *currTok;
 
-  PLL_Init(Bus80MHz);       // set system clock to 50 MHz
-  UART_Init();              // initialize UART
+  //PLL_Init(Bus80MHz);       // set system clock to 50 MHz
+  //UART_Init();              // initialize UART
 
   UART_OutCRLF();
 
@@ -111,10 +111,10 @@ static void adc_runComm(const char *comm) {
         }
 
         UART_OutStringCRLF("Turning ADC0 on...");
-        ADC_TurnOn(channel, fs);
+        ADC_Init(channel);//, fs);
     } else if(strcmp(currComm, "print") == 0) {
-        UART_OutString("ADC Output: ");
-        UART_OutUDec(ADC_Val());
+        UART_OutString("ADC Output: Always Nothing");
+        //UART_OutUDec(ADC_Val());
         UART_OutCRLF();
 
         return;
@@ -144,7 +144,7 @@ static void adc_runComm(const char *comm) {
           return;
         }
 
-        ADC_Collect2(channelNum, fs, adcBuff, numberOfSamples);
+        ADC_Collect(channelNum, fs, NULL);
     } else
       UART_OutStringCRLF("Invalid adc command. Type \"adc -h\" for a list of commands.");
 }

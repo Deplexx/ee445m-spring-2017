@@ -38,6 +38,9 @@
         .global  OS_Signal
         .global  OS_bSignal
 
+        .ref CountTimeSlice
+CountTimeSlicePtr .field CountTimeSlice, 32
+
 
 OS_DisableInterrupts:  .asmfunc
         CPSID   I
@@ -49,20 +52,50 @@ OS_EnableInterrupts:  .asmfunc
         BX      LR
        .endasmfunc
 
-SysTick_Handler:  .asmfunc     ; 1) Saves R0-R3,R12,LR,PC,PSR
-    CPSID   I                  ; 2) Prevent interrupt during switch
-    PUSH    {R4-R11}           ; 3) Save remaining regs r4-11
-    LDR     R0, RunPtAddr      ; 4) R0=pointer to RunPt, old thread
-    LDR     R1, [R0]           ;    R1 = RunPt
-    STR     SP, [R1]           ; 5) Save SP into TCB
-    LDR     R1, [R1,#4]        ; 6) R1 = RunPt->next
-    STR     R1, [R0]           ;    RunPt = R1
-    LDR     SP, [R1]           ; 7) new thread SP; SP = RunPt->sp;
-    POP     {R4-R11}           ; 8) restore regs r4-11
-    CPSIE   I                  ; 9) tasks run with interrupts enabled
-    BX      LR                 ; 10) restore R0-R3,R12,LR,PC,PSR
-   .endasmfunc
 RunPtAddr .field RunPt,32
+
+;PF1    DCD     0x40025008
+;PF2    DCD     0x40025010
+
+PF1 .equ 0x40025008
+PF1Ptr .field PF1, 32
+
+PF2 .equ 0x40025010
+PF2Ptr .field PF2, 32
+
+SysTick_Handler:  .asmfunc     ; 1) Saves R0-R3,R12,LR,PC,PSR
+  CPSID   I                  ; 2) Prevent interrupt during switch
+  LDR     R0, PF1Ptr           ; toggle heartbeat
+  LDR     R0, [R0]
+  LDR     R1, [R0]
+  EOR     R1, #0x02
+  STR     R1, [R0]
+  EOR     R1, #0x02
+  STR     R1, [R0]
+  LDR     R0, CountTimeSlicePtr  ;increment timer
+  LDR     R0, [R0]
+  LDR     R1, [R0]
+  ADD     R1, #1
+  STR     R1, [R0]
+  PUSH    {R4-R11}           ; 3) Save remaining regs r4-11
+  MOV     R0, #0xD000D000
+  PUSH    {R0}
+  ADD     SP, #4
+  LDR     R0, RunPtAddr         ; 4) R0=pointer to RunPt, old thread
+  LDR     R1, [R0]           ;    R1 = RunPt
+  STR     SP, [R1]           ; 5) Save SP into TCB
+  LDR     R1, [R1,#4]        ; 6) R1 = RunPt->next
+  STR     R1, [R0]           ;    RunPt = R1
+  LDR     SP, [R1]           ; 7) new thread SP; SP = RunPt->sp;
+  POP     {R4-R11}           ; 8) restore regs r4-11
+  LDR     R0, PF1Ptr           ; toggle heartbeat
+  LDR     R0, [R0]
+  LDR     R1, [R0]
+  EOR     R1, #0x02
+  STR     R1, [R0]
+  CPSIE   I                  ; 9) tasks run with interrupts enabled
+  BX      LR                 ; 10) restore R0-R3,R12,LR,PC,PSR
+ .endasmfunc
 
 StartOS:  .asmfunc
     LDR     R0, RunPtAddr      ; currently running thread

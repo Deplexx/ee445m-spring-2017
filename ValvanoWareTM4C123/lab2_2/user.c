@@ -75,7 +75,7 @@ static void done(void) {
     OS_EnableInterrupts();
 }
 
-int main(void) {
+int notrealmain(void) {
   OS_Init();           // initialize, disable interrupts
   ST7735_InitR(INITR_REDTAB);
   //ST7735_OutUDec(c);
