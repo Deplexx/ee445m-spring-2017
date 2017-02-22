@@ -90,8 +90,11 @@
 
 #include <stdio.h>
 #include <stdint.h>
-#include "ST7735.h"
+
 #include "../inc/tm4c123gh6pm.h"
+
+#include "os.h"
+#include "ST7735.h"
 
 // 16 rows (0 to 15) and 21 characters (0 to 20)
 // Requires (11 + size*size*6*8) bytes of transmission for each character
@@ -490,6 +493,9 @@ static enum initRFlags TabColor;
 static int16_t _width = ST7735_TFTWIDTH;   // this could probably be a constant, except it is used in Adafruit_GFX and depends on image rotation
 static int16_t _height = ST7735_TFTHEIGHT;
 
+Sema4Type sema;
+
+static void message(int device, int line, char *string, int value);
 
 // The Data/Command pin must be valid when the eighth bit is
 // sent.  The SSI module has hardware input and output FIFOs
@@ -705,6 +711,9 @@ void static commandList(const uint8_t *addr) {
 // Initialization code common to both 'B' and 'R' type displays
 void static commonInit(const uint8_t *cmdList) {
   volatile uint32_t delay;
+
+  OS_InitSemaphore(&sema, 0);
+
   ColStart  = RowStart = 0; // May be overridden in init func
 
   SYSCTL_RCGCSSI_R |= 0x01;  // activate SSI0
@@ -1619,43 +1628,48 @@ void Output_Color(uint32_t newColor){ // Set color of future output
 //         value (number to display)
 // Output: none
 // ********************************************************
-void ST7735_Message(int device, int line, char *string, int value){
-  int y, x, div;
-  
-  if(device>1 || device<0) return;
-  if(line>7 || line<0) return;
-  
-  x=0;
-  y = (device ? 80:0) + line*10;
-	div = 1;
-  
-  while(*string){
-    ST7735_DrawChar(x*6, y, *string, ST7735_WHITE, ST7735_BLACK, 1);
-    string++;
-    x = x+1;
-    if(x>20) return;
-  }
-  x++;
-
-  if(value==0){
-    ST7735_DrawChar(x*6, y, '0', ST7735_WHITE, ST7735_BLACK, 1);
-		return;
-	} else if(value<0) {
-    ST7735_DrawChar(x*6, y, '-', ST7735_WHITE, ST7735_BLACK, 1);
-		value = 0-value;
-		x++;
-	}
-	
-	while(div<=value){
-		div = div*10;
-	}
-	
-	while(div>1){
-		div = div/10;
-		char outchar = value/div + '0';
-		value = value%div;
-		ST7735_DrawChar(x*6, y, outchar, ST7735_WHITE, ST7735_BLACK, 1);
-		x++;
-	}
+void ST7735_Message(int device, int line, char *string, int value) {
+  OS_bWait(&sema);
+  message(device, line, string, value);
+  OS_bSignal(&sema);
 }
 
+static void message(int device, int line, char *string, int value) {
+    int y, x, div;
+
+    if(device>1 || device<0) return;
+    if(line>7 || line<0) return;
+
+    x=0;
+    y = (device ? 80:0) + line*10;
+      div = 1;
+
+    while(*string){
+      ST7735_DrawChar(x*6, y, *string, ST7735_WHITE, ST7735_BLACK, 1);
+      string++;
+      x = x+1;
+      if(x>20) return;
+    }
+    x++;
+
+    if(value==0){
+      ST7735_DrawChar(x*6, y, '0', ST7735_WHITE, ST7735_BLACK, 1);
+          return;
+      } else if(value<0) {
+      ST7735_DrawChar(x*6, y, '-', ST7735_WHITE, ST7735_BLACK, 1);
+          value = 0-value;
+          x++;
+      }
+
+      while(div<=value){
+          div = div*10;
+      }
+
+      while(div>1){
+          div = div/10;
+          char outchar = value/div + '0';
+          value = value%div;
+          ST7735_DrawChar(x*6, y, outchar, ST7735_WHITE, ST7735_BLACK, 1);
+          x++;
+      }
+}

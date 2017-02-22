@@ -33,6 +33,10 @@
         .global  OS_EnableInterrupts
         .global  StartOS
         .global  SysTick_Handler
+        .global  OS_Wait
+        .global  OS_bWait
+        .global  OS_Signal
+        .global  OS_bSignal
 
 
 OS_DisableInterrupts:  .asmfunc

@@ -321,7 +321,7 @@ unsigned long myId = OS_Id();
 
 
 //*******************final user main DEMONTRATE THIS TO TA**********
-int main(void){ 
+int realmain(void){
   OS_Init();           // initialize, disable interrupts
   PortE_Init();
   DataLost = 0;        // lost data between producer and consumer

@@ -23,6 +23,7 @@
  */
 
 #include <stdint.h>
+#include <stdlib.h>
 
 #include "FIFO.h"
 #include "LED.h"
@@ -68,10 +69,15 @@ tcbType *SleepTail = 0;
 #define OS_FIFOSIZE   128         // size of the FIFOs (must be power of 2)
 #define OS_FIFOSUCCESS 1        // return value on success
 #define OS_FIFOFAIL    0         // return value on failure
-AddIndexFifo(OS, OS_FIFOSIZE, int, OS_FIFOSUCCESS, OS_FIFOFAIL)
+static Sema4Type fifoEmpty;
+static Sema4Type fifoFull;
+static Sema4Type fifoLock;
+AddIndexFifo(OS, OS_FIFOSIZE, unsigned long, OS_FIFOSUCCESS, OS_FIFOFAIL)
 
-
-
+static Sema4Type mailPost;
+static Sema4Type mailRecv;
+static Sema4Type mailLock;
+static unsigned long Mail;
 
 // ******** OS_Init ************
 // initialize operating system, disable interrupts until OS_Launch
@@ -228,18 +234,38 @@ int OS_AddSW2Task(void(*task)(void), unsigned long priority) {
     return 0;
 }
 
+void OS_InitSemaphore(Sema4Type *semaPt, long value) {
+    if(semaPt != NULL)
+        semaPt->Value = value;
+}
+
 void OS_Fifo_Init(unsigned long size) { //size is ignored for lab 2
+    OS_InitSemaphore(&fifoFull, OS_FIFOSIZE);
+    OS_InitSemaphore(&fifoEmpty, -1);
+    OS_InitSemaphore(&fifoLock, 0);
     OSFifo_Init();
 }
 
 int OS_Fifo_Put(unsigned long data) {
-    return OSFifo_Put(data);
+    int ret;
+
+    OS_Wait(&fifoFull);
+    OS_bWait(&fifoLock);
+    ret = OSFifo_Put(data);
+    OS_bSignal(&fifoLock);
+    OS_Signal(&fifoEmpty);
+
+    return ret;
 }
 
 unsigned long OS_Fifo_Get(void) {
-    int ret;
+    unsigned long ret;
 
+    OS_Wait(&fifoEmpty);
+    OS_bWait(&fifoLock);
     OSFifo_Get(&ret);
+    OS_bSignal(&fifoLock);
+    OS_Signal(&fifoFull);
 
     return ret;
 }
@@ -249,15 +275,29 @@ long OS_Fifo_Size(void) {
 }
 
 void OS_MailBox_Init(void) {
-
+    OS_InitSemaphore(&mailPost, -1);
+    OS_InitSemaphore(&mailRecv, 0);
+    OS_InitSemaphore(&mailLock, 0);
 }
 
 void OS_MailBox_Send(unsigned long data) {
-
+    OS_bWait(&mailRecv);
+    OS_bWait(&mailLock);
+    Mail = data;
+    OS_bSignal(&mailLock);
+    OS_bSignal(&mailPost);
 }
 
 unsigned long OS_MailBox_Recv(void) {
-    return 0;
+    unsigned long ret;
+
+    OS_bWait(&mailPost);
+    OS_bWait(&mailLock);
+    ret = Mail;
+    OS_bSignal(&mailLock);
+    OS_bSignal(&mailRecv);
+
+    return ret;
 }
 
 unsigned long OS_Time(void) {
