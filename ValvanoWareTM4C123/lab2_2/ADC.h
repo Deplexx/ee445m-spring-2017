@@ -22,8 +22,9 @@
  http://users.ece.utexas.edu/~valvano/
  */
 
-void ADC_Init(int channelNum);
-int ADC_TurnOn(uint8_t channelNum, uint32_t fs);
+int ADC_Init(int channelNum);
+int ADC_Collect(uint32_t channelNum, uint32_t freq, void(*task)(unsigned long));
+uint32_t ADC_In(void);
 
 // This initialization function sets up the ADC according to the
 // following parameters.  Any parameters not explicitly listed
@@ -43,15 +44,9 @@ int ADC_TurnOn(uint8_t channelNum, uint32_t fs);
 // SS3 1st sample source: programmable using variable 'channelNum' [0:11]
 // SS3 interrupts: enabled and promoted to controller
 // channelNum must be 0-11 (inclusive) corresponding to Ain0 through Ain11
-void ADC0_InitTimer2ATriggerSeq3(uint8_t channelNum, uint32_t period);
 
-int ADC_Val(void);
-
-int ADC_In(void);
-
-int ADC_Collect2(uint32_t channelNum,
-                uint32_t fs,
-                uint16_t buffer[],
-                uint32_t numberOfSamples);
-
-int ADC_Collect(uint32_t channelNum,uint32_t fs,void (*ptask)(unsigned long));
+//void ADC0_InitTimer2ATriggerSeq3(uint8_t channelNum, uint32_t period);
+//int ADC_Val(void);
+//int ADC_In(void);
+//int ADC_Collect2(uint32_t channelNum, uint32_t fs, uint16_t buffer[], uint32_t numberOfSamples);
+//int ADC_TurnOn(uint8_t channelNum, uint32_t fs);
