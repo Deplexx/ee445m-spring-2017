@@ -73,4 +73,53 @@ StartOS:  .asmfunc
     CPSIE   I                  ; Enable interrupts at processor level
     BX      LR                 ; start first thread
    .endasmfunc
+
+   ; void OS_Wait(Sema4Type *semaPt)
+OS_Wait_store_back:
+    STREX R2, R1, [R0]
+OS_Wait: .asmfunc
+    LDREX R1, [R0]
+    CMP R1, #0
+    BNE OS_Wait_store_back
+    ADD R1, R1, #-1
+    STREX R2, R1, [R0]
+    CMP R2, #0
+    BNE OS_Wait
+    BX LR
+    .endasmfunc
+
+; void OS_bWait(Sema4Type *semaPt)
+OS_bWait_store_back:
+    STREX R2, R1, [R0]
+OS_bWait: .asmfunc
+    LDREX R1, [R0]
+    CMP R1, #0
+    BNE OS_bWait_store_back
+    MOV R1, #-1
+    STREX R2, R1, [R0]
+    CMP R2, #0
+    BNE OS_bWait
+    BX LR
+    .endasmfunc
+
+; void OS_bSignal(Sema4Type *semaPt)
+OS_Signal: .asmfunc
+    LDREX R1, [R0]
+    ADD R1, R1, #1
+    STREX R2, R1, [R0]
+    CMP R2, #0
+    BNE OS_Signal
+    BX LR
+    .endasmfunc
+
+; void OS_bSignal(Sema4Type *semaPt)
+OS_bSignal: .asmfunc
+    LDREX R1, [R0]
+    MOV R1, #0
+    STREX R2, R1, [R0]
+    CMP R2, #0
+    BNE OS_bSignal
+    BX LR
+    .endasmfunc
+
    .end

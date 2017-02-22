@@ -24,12 +24,15 @@
 // PD2 Ain5 sampled at 250Hz, sequencer 0, by Producer, timer tigger
 
 #include <stdint.h>
-#include "OS.h"
-#include "inc/tm4c123gh6pm.h"
-#include "ST7735.h"
+#include <string.h>
+
+#include "../inc/tm4c123gh6pm.h"
+
 #include "ADC.h"
-//#include "UART2.h"
-#include <string.h> 
+#include "os.h"
+#include "ST7735.h"
+#include "uart_interp.h"
+
 #define Lab2 1
 #define Lab3 0
 //*********Prototype for FFT in cr4_fft_64_stm32.s, STMicroelectronics
@@ -306,7 +309,7 @@ unsigned long myId = OS_Id();
 // Interpreter is a foreground thread, accepts input from serial port, outputs to serial port
 // inputs:  none
 // outputs: none
-void Interpreter(void);    // just a prototype, link to your interpreter
+//void Interpreter(void);    // just a prototype, link to your interpreter
 // add the following commands, leave other commands, if they make sense
 // 1) print performance measures 
 //    time-jitter, number of data points lost, number of calculations performed

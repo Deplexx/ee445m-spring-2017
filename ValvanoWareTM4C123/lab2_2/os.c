@@ -23,9 +23,11 @@
  */
 
 #include <stdint.h>
+
+#include "FIFO.h"
+#include "LED.h"
 #include "os.h"
 #include "PLL.h"
-#include "LED.h"
 
 #define NVIC_ST_CTRL_R          (*((volatile uint32_t *)0xE000E010))
 #define NVIC_ST_CTRL_CLK_SRC    0x00000004  // Clock Source
@@ -40,8 +42,8 @@
 // function definitions in osasm.s
 void OS_DisableInterrupts(void); // Disable interrupts
 void OS_EnableInterrupts(void);  // Enable interrupts
-int32_t StartCritical(void);
-void EndCritical(int32_t primask);
+long StartCritical(void);
+void EndCritical(long sr);
 void StartOS(void);
 
 #define MAXTHREADS  10        // maximum number of threads
@@ -61,6 +63,15 @@ int numThreads = 0;
 int currentId = 0;
 tcbType *SleepHead = 0;
 tcbType *SleepTail = 0;
+
+
+#define OS_FIFOSIZE   128         // size of the FIFOs (must be power of 2)
+#define OS_FIFOSUCCESS 1        // return value on success
+#define OS_FIFOFAIL    0         // return value on failure
+AddIndexFifo(OS, OS_FIFOSIZE, int, OS_FIFOSUCCESS, OS_FIFOFAIL)
+
+
+
 
 // ******** OS_Init ************
 // initialize operating system, disable interrupts until OS_Launch
@@ -202,4 +213,65 @@ void OS_Sleep(unsigned long sleepTime){
 
 unsigned long OS_Id(void){
   return RunPt->id;
+}
+
+int OS_AddPeriodicThread(void(*task)(void),
+   unsigned long period, unsigned long priority) {
+    return 0;
+}
+
+int OS_AddSW1Task(void(*task)(void), unsigned long priority) {
+    return 0;
+}
+
+int OS_AddSW2Task(void(*task)(void), unsigned long priority) {
+    return 0;
+}
+
+void OS_Fifo_Init(unsigned long size) { //size is ignored for lab 2
+    OSFifo_Init();
+}
+
+int OS_Fifo_Put(unsigned long data) {
+    return OSFifo_Put(data);
+}
+
+unsigned long OS_Fifo_Get(void) {
+    int ret;
+
+    OSFifo_Get(&ret);
+
+    return ret;
+}
+
+long OS_Fifo_Size(void) {
+    return OSFifo_Size();
+}
+
+void OS_MailBox_Init(void) {
+
+}
+
+void OS_MailBox_Send(unsigned long data) {
+
+}
+
+unsigned long OS_MailBox_Recv(void) {
+    return 0;
+}
+
+unsigned long OS_Time(void) {
+    return 0;
+}
+
+unsigned long OS_TimeDifference(unsigned long start, unsigned long stop) {
+    return 0;
+}
+
+void OS_ClearMsTime(void) {
+
+}
+
+unsigned long OS_MsTime(void) {
+    return 0;
 }
