@@ -161,10 +161,10 @@ unsigned long myId = OS_Id();
   PE1 ^= 0x02;
   ST7735_Message(1,0,"NumCreated =",NumCreated); 
   PE1 ^= 0x02;
-  //OS_Sleep(50);     // set this to sleep for 50msec
-  //ST7735_Message(1,1,"PIDWork     =",PIDWork);
-  //ST7735_Message(1,2,"DataLost    =",DataLost);
-  //ST7735_Message(1,3,"Jitter 0.1us=",MaxJitter);
+  OS_Sleep(1000);     // set this to sleep for 50msec
+  ST7735_Message(1,1,"PIDWork     =",PIDWork);
+  ST7735_Message(1,2,"DataLost    =",DataLost);
+  ST7735_Message(1,3,"Jitter 0.1us=",MaxJitter);
   PE1 ^= 0x02;
   OS_Kill();  // done, OS does not return from a Kill
 } 

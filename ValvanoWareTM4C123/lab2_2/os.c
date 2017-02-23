@@ -22,6 +22,7 @@
  http://users.ece.utexas.edu/~valvano/
  */
 
+#include <stdbool.h>
 #include <stdint.h>
 #include <stdlib.h>
 
@@ -68,8 +69,13 @@ tcbType *RunPt;
 int32_t Stacks[MAXTHREADS][STACKSIZE];
 int numThreads = 0;
 int currentId = 0;
-tcbType *sleepHead = 0;
-tcbType *sleepTail = 0;
+
+//"bootstraps" the next pointer for context switch
+tcbType dummyTcb;
+
+//similar to dummyTcb
+tcbType sleepyHead;
+tcbType sleepyTail;
 
 tcbType *runHead = 0;
 tcbType *runTail = 0;
@@ -101,6 +107,15 @@ void InitAllTCBs(void){
   }
 }
 
+void InitSleepTCB(void){
+  sleepyHead.id = 0xBEA7BEEF;
+  sleepyTail.id = 0xBAADDEED;
+  sleepyHead.prev = 0;
+  sleepyHead.next = &sleepyTail;
+  sleepyTail.prev = &sleepyHead;
+  sleepyTail.next = 0;
+}
+
 void OS_InitSysTimer(void){
   SYSCTL_RCGCTIMER_R |= 0x10;   // 0) activate TIMER4
   volatile int delay = SYSCTL_RCGCTIMER_R;
@@ -119,11 +134,6 @@ void OS_InitSysTimer(void){
   TIMER4_CTL_R = 0x00000001;    // 10) enable TIMER3A
 }
 
-void Timer4A_Handler(void){
-  TIMER4_ICR_R = TIMER_ICR_TATOCINT;
-  sysTime++;
-}
-
 // ******** OS_Init ************
 // initialize operating system, disable interrupts until OS_Launch
 // initialize OS controlled I/O: systick, 50 MHz PLL
@@ -133,6 +143,7 @@ void OS_Init(void){
   OS_DisableInterrupts();
   PLL_Init(Bus80MHz);         // set processor clock to 50 MHz
   InitAllTCBs();
+  InitSleepTCB();
   OS_InitSysTimer();
   
   //LED_Init();
@@ -314,19 +325,154 @@ void OS_Kill(void){
 // You are free to select the time resolution for this function
 // OS_Sleep(0) implements cooperative multitasking
 void OS_Sleep(unsigned long sleepTime){
-  int32_t status; status = StartCritical();
-  
+  //int32_t status; status = StartCritical();
+  OS_DisableInterrupts();
   //check if sleeptime > 0 and not running single thread
   if(sleepTime > 0 && RunPt->next != RunPt){
     tcbType *thisTcb = RunPt;
     thisTcb->sleep = sleepTime;
+    
     //Remove thread from current run list
     thisTcb->prev->next = thisTcb->next;
     thisTcb->next->prev = thisTcb->prev;
+    
+    //config dummyTcb as RunPt
+    dummyTcb.sp = thisTcb->sp;
+    dummyTcb.next = thisTcb->next;
+    RunPt = &dummyTcb;
+
+    //insert into sleeping list
+    sleepyTail.prev->next = thisTcb;
+    thisTcb->prev = sleepyTail.prev;
+    thisTcb->next = &sleepyTail;
+    sleepyTail.prev = thisTcb;
+    
+   /*
+    if(!sleepyHead){
+      sleepyHead = thisTcb;
+      sleepyTail = thisTcb;
+      thisTcb->prev = thisTcb;
+      //thicTcb->next = 0;
+    }else{
+      thisTcb->prev = sleepyTail;
+      sleepyTail->next = thisTcb;
+      sleepyHead->prev = thisTcb;
+      sleepyTail = thisTcb;
+    }
+    */
   }
   
   //trigger pendsv, contex switch
   NVIC_INT_CTRL_R |= 0x10000000;
+  OS_EnableInterrupts();
+  //EndCritical(status);
+}
+
+void Timer4A_Handler(void){
+  TIMER4_ICR_R = TIMER_ICR_TATOCINT; //acknowledge interrupt
+  int32_t status; status = StartCritical();
+  sysTime++;
+  
+  tcbType *thisTcb = sleepyHead.next;
+  //tcbType cp;
+  //tcbType *insertHead;
+  //tcbType *insertTail;
+  
+  while(thisTcb != &sleepyTail){
+    if(thisTcb->sleep == 0){
+      tcbType *nextTcb = thisTcb->next;
+      //fix sleeping list
+      thisTcb->prev->next = thisTcb->next;
+      thisTcb->next->prev = thisTcb->prev;
+      //insert back into running list
+      thisTcb->next = runHead;
+      thisTcb->prev = runTail;
+      runHead->prev = thisTcb;
+      runTail->next = thisTcb;
+      //assuming more than 1 thread
+      runTail = thisTcb;
+      //increment
+      thisTcb = nextTcb;
+      //
+      RunPt = thisTcb;
+    } else {
+      thisTcb->sleep--;
+      thisTcb = thisTcb->next;
+    }
+  }
+  
+  //no sleepers
+  /*
+  if(sleepyHead == 0){
+    EndCritical(status);
+    return;
+  }
+  */
+  //1 sleeper
+  /*
+  if(sleepyHead == sleepyTail){
+    if(sleepyHead->sleep > 0){
+      sleepyHead->sleep--;
+      EndCritical(status);
+      return;
+    }
+    runHead->prev = sleepyHead;
+    runTail->next = sleepyHead;
+    sleepyHead->prev = runTail;
+    sleapyHead->next = runHead;
+    sleepyHead = 0;
+    sleepyTail = 0;
+    EndCritical(status);
+    return;
+  }*/
+  /*
+  sleepyTail->next = sleepyHead;
+  sleepyHead->prev = sleepyTail;
+  tcbType *thisTcb = sleepyTail;
+  
+  bool done = false;
+  do{
+    if(sleepyHead == sleepyTail){
+      if(sleepyHead->sleep > 0){
+        sleepyHead->sleep--;
+        EndCritical(status);
+        return;
+      }
+      runHead->prev = sleepyHead;
+      runTail->next = sleepyHead;
+      sleepyHead->prev = runTail;
+      sleepyHead->next = runHead;
+      sleepyHead = 0;
+      sleepyTail = 0;
+      EndCritical(status);
+      return;
+    }
+    tcbType *prevTcb = thisTcb->prev;
+    if(thisTcb->sleep == 0){
+      
+      //fix sleeping thread list
+      thisTcb->prev->next = thisTcb->next;
+      thisTcb->next->prev = thisTcb->prev;
+      if(thisTcb == sleepyTail)
+        sleepyTail = sleepyTail->next;
+      //add thread back to run thread list
+      runHead->prev = thisTcb;
+      runTail->next = thisTcb;
+      thisTcb->prev = runTail;
+      thisTcb->next = runHead;
+      runTail = thisTcb;
+    }else{
+      thisTcb->sleep--;
+    }
+    
+    if(done)
+      break;
+    else if(thisTcb == sleepyTail)
+      done = true;7
+    
+    thisTcb = prevTcb;
+  }while(true);
+  */
   EndCritical(status);
 }
 
