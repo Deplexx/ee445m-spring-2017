@@ -61,7 +61,10 @@ void Interpreter(void) {
   //UART_Init();              // initialize UART
 
   UART_OutCRLF();
-
+  UART_OutString("ABCDEFGHIJKLMNOPQRSTUVWXYZ");
+  UART_OutString("abcdefghijklmnopqrstuvwxyz");
+  UART_OutString("0123456789");
+  
   while(true) {
     UART_OutString("> ");
     UART_InString(inBuff, IN_BUFF_SIZE);
@@ -90,7 +93,7 @@ void Interpreter(void) {
 }
 
 static void adc_runComm(const char *comm) {
-    char *currComm = strtok(comm, " \t");
+    char *currComm = strtok((char*)comm, " \t");
 
     if(strcmp(currComm, "on") == 0) {
         int channel = nextInt();
@@ -166,7 +169,7 @@ static void os_runComm(const char *comm) {
 }
 
 static void lcd_runComm(const char *comm) {
-    char *currTok = comm;
+    char *currTok = (char*)comm;
 
     if(strcmp((const char*) currTok, "on") == 0)
         ST7735_InitR(INITR_REDTAB);

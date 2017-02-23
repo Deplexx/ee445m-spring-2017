@@ -161,10 +161,10 @@ unsigned long myId = OS_Id();
   PE1 ^= 0x02;
   ST7735_Message(1,0,"NumCreated =",NumCreated); 
   PE1 ^= 0x02;
-  OS_Sleep(50);     // set this to sleep for 50msec
-  ST7735_Message(1,1,"PIDWork     =",PIDWork);
-  ST7735_Message(1,2,"DataLost    =",DataLost);
-  ST7735_Message(1,3,"Jitter 0.1us=",MaxJitter);
+  //OS_Sleep(50);     // set this to sleep for 50msec
+  //ST7735_Message(1,1,"PIDWork     =",PIDWork);
+  //ST7735_Message(1,2,"DataLost    =",DataLost);
+  //ST7735_Message(1,3,"Jitter 0.1us=",MaxJitter);
   PE1 ^= 0x02;
   OS_Kill();  // done, OS does not return from a Kill
 } 
@@ -258,7 +258,8 @@ unsigned long data,voltage;
     data = OS_MailBox_Recv();
     voltage = 3000*data/4095;               // calibrate your device so voltage is in mV
     PE3 = 0x08;
-    ST7735_Message(0,2,"v(mV) =",voltage);  
+    ST7735_Message(0,2,"v(mV) =",voltage);
+    ST7735_Message(0,3,"ms time=",OS_MsTime());    
     PE3 = 0x00;
   } 
   OS_Kill();  // done
@@ -319,11 +320,11 @@ unsigned long myId = OS_Id();
 //    i.e., x[], y[] 
 //--------------end of Task 5-----------------------------
 
-
 //*******************final user main DEMONTRATE THIS TO TA**********
 int main(void){
   OS_Init();           // initialize, disable interrupts
   PortE_Init();
+  ST7735_InitR(INITR_REDTAB);
   DataLost = 0;        // lost data between producer and consumer
   NumSamples = 0;
   MaxJitter = 0;       // in 1us units
@@ -333,7 +334,7 @@ int main(void){
   OS_Fifo_Init(128);    // ***note*** 4 is not big enough*****
 
 //*******attach background tasks***********
-//  OS_AddSW1Task(&SW1Push,2);
+  OS_AddSW1Task(&SW1Push,2);
 #if Lab3
   OS_AddSW2Task(&SW2Push,2);  // add this line in Lab 3
 #endif

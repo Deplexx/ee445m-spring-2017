@@ -32,6 +32,15 @@
 #define TIME_500US  (TIME_1MS/2)  
 #define TIME_250US  (TIME_1MS/5) 
 
+// LED Stuff
+#define PF1       (*((volatile unsigned long *)0x40025008))
+#define PF2       (*((volatile unsigned long *)0x40025010))
+#define PF3       (*((volatile unsigned long *)0x40025020))
+#define LEDS      (*((volatile unsigned long *)0x40025038))
+#define RED       0x02
+#define BLUE      0x04
+#define GREEN     0x08
+
 // feel free to change the type of semaphore, there are lots of good solutions
 struct  Sema4{
   long Value;   // >0 means free, otherwise means busy        

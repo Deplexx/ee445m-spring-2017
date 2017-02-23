@@ -1642,10 +1642,12 @@ static void message(int device, int line, char *string, int value) {
 
     x=0;
     y = (device ? 80:0) + line*10;
-      div = 1;
+    div = 1;
+    uint16_t textColor = device ? ST7735_GREEN : ST7735_BLACK;
+    uint16_t bgColor = device ? ST7735_BLUE : ST7735_YELLOW;
 
     while(*string){
-      ST7735_DrawChar(x*6, y, *string, ST7735_WHITE, ST7735_BLACK, 1);
+      ST7735_DrawChar(x*6, y, *string, textColor, bgColor, 1);
       string++;
       x = x+1;
       if(x>20) return;
@@ -1653,10 +1655,10 @@ static void message(int device, int line, char *string, int value) {
     x++;
 
     if(value==0){
-      ST7735_DrawChar(x*6, y, '0', ST7735_WHITE, ST7735_BLACK, 1);
+      ST7735_DrawChar(x*6, y, '0', textColor, bgColor, 1);
           return;
       } else if(value<0) {
-      ST7735_DrawChar(x*6, y, '-', ST7735_WHITE, ST7735_BLACK, 1);
+      ST7735_DrawChar(x*6, y, '-', textColor, bgColor, 1);
           value = 0-value;
           x++;
       }
@@ -1669,7 +1671,7 @@ static void message(int device, int line, char *string, int value) {
           div = div/10;
           char outchar = value/div + '0';
           value = value%div;
-          ST7735_DrawChar(x*6, y, outchar, ST7735_WHITE, ST7735_BLACK, 1);
+          ST7735_DrawChar(x*6, y, outchar, textColor, bgColor, 1);
           x++;
       }
 }

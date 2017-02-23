@@ -52,7 +52,7 @@ long StartCritical(void);
 void EndCritical(long sr);
 void StartOS(void);
 
-#define MAXTHREADS  10        // maximum number of threads
+#define MAXTHREADS  20        // maximum number of threads
 #define STACKSIZE   100      // number of 32-bit words in stack
 struct tcb{
   int32_t *sp;       // pointer to stack (valid for threads not running
@@ -60,6 +60,7 @@ struct tcb{
   struct tcb *prev;  // doubly-linked
   uint32_t id;
   int32_t sleep;
+  uint32_t active;
 };
 typedef struct tcb tcbType;
 tcbType tcbs[MAXTHREADS];
@@ -67,10 +68,14 @@ tcbType *RunPt;
 int32_t Stacks[MAXTHREADS][STACKSIZE];
 int numThreads = 0;
 int currentId = 0;
-tcbType *SleepHead = 0;
-tcbType *SleepTail = 0;
+tcbType *sleepHead = 0;
+tcbType *sleepTail = 0;
 
-uint32_t CountTimeSlice = 0; // increments every systick
+tcbType *runHead = 0;
+tcbType *runTail = 0;
+
+volatile uint32_t CountTimeSlice = 0; // increments every systick
+volatile uint32_t sysTime = 0;
 
 #define OS_FIFOSIZE   128         // size of the FIFOs (must be power of 2)
 #define OS_FIFOSUCCESS 1        // return value on success
@@ -85,6 +90,40 @@ static Sema4Type mailRecv;
 static Sema4Type mailLock;
 static unsigned long Mail;
 
+void InitAllTCBs(void){
+  for(int k=0; k<MAXTHREADS; k++){
+    tcbs[k].sp = 0;
+    tcbs[k].next = 0;
+    tcbs[k].prev = 0;
+    tcbs[k].id = 666666;
+    tcbs[k].sleep = 0;
+    tcbs[k].active = 0;
+  }
+}
+
+void OS_InitSysTimer(void){
+  SYSCTL_RCGCTIMER_R |= 0x10;   // 0) activate TIMER4
+  volatile int delay = SYSCTL_RCGCTIMER_R;
+  TIMER4_CTL_R = 0x00000000;    // 1) disable TIMER4A during setup
+  TIMER4_CFG_R = 0x00000000;    // 2) configure for 32-bit mode
+  TIMER4_TAMR_R = 0x00000002;   // 3) configure for periodic mode, default down-count settings
+  //TIMER4_TAILR_R = period-1;    // 4) reload value
+  TIMER4_TAILR_R = TIME_1MS-1;    // 4) reload value
+  TIMER4_TAPR_R = 0;            // 5) bus clock resolution
+  TIMER4_ICR_R = 0x00000001;    // 6) clear TIMER4 timeout flag
+  TIMER4_IMR_R = 0x00000001;    // 7) arm timeout interrupt
+	NVIC_PRI17_R = (NVIC_PRI17_R&0xFF00FFFF)|(5<<21); // 21 = (70%4)*8+5, 17 = 70/4
+// interrupts enabled in the main program after all devices initialized
+// vector number 51, interrupt number 35
+  NVIC_EN2_R |= 1<<(70%32);      // 9) enable IRQ 86 in NVIC; 2 = 70/32 = 2, 2*32 = 64; 70 = 86 - 16
+  TIMER4_CTL_R = 0x00000001;    // 10) enable TIMER3A
+}
+
+void Timer4A_Handler(void){
+  TIMER4_ICR_R = TIMER_ICR_TATOCINT;
+  sysTime++;
+}
+
 // ******** OS_Init ************
 // initialize operating system, disable interrupts until OS_Launch
 // initialize OS controlled I/O: systick, 50 MHz PLL
@@ -93,6 +132,9 @@ static unsigned long Mail;
 void OS_Init(void){
   OS_DisableInterrupts();
   PLL_Init(Bus80MHz);         // set processor clock to 50 MHz
+  InitAllTCBs();
+  OS_InitSysTimer();
+  
   //LED_Init();
   UART_Init();
   
@@ -169,18 +211,48 @@ int OS_AddThreads(void(*task0)(void),
 int OS_AddThread(void(*task)(void), unsigned long stackSize, unsigned long priority){
   int32_t status;
   status = StartCritical();
-  SetInitialStack(numThreads); Stacks[numThreads][STACKSIZE-2] = (int32_t)(task); // set PC
-  tcbs[numThreads].id = currentId;
-  tcbs[numThreads].sleep = 0;
+//  SetInitialStack(numThreads); Stacks[numThreads][STACKSIZE-2] = (int32_t)(task); // set PC
+//  tcbs[numThreads].id = currentId;
+//  tcbs[numThreads].sleep = 0;
   
   if(numThreads>0 && numThreads<MAXTHREADS){
-    tcbs[numThreads-1].next = &tcbs[numThreads];
-    tcbs[numThreads].next = &tcbs[0];
-    tcbs[numThreads].prev = &tcbs[numThreads-1];
-    tcbs[0].prev = &tcbs[numThreads]; // 2 points to 0
+//    tcbs[numThreads-1].next = &tcbs[numThreads];
+//    tcbs[numThreads].next = &tcbs[0];
+//    tcbs[numThreads].prev = &tcbs[numThreads-1];
+//    tcbs[0].prev = &tcbs[numThreads]; // 2 points to 0
+    
+    //find open tcb spot
+    int spot;
+    for(int k=0; k<MAXTHREADS; k++){
+      if(!(tcbs[k].active)){
+        spot = k;
+        break;
+      }
+    }
+    
+    SetInitialStack(spot);
+    Stacks[spot][STACKSIZE-2] = (int32_t)(task);
+    //fix linked list
+    tcbs[spot].next = runHead;
+    tcbs[spot].prev = runTail;
+    runTail->next = &tcbs[spot];
+    runHead->prev = &tcbs[spot];
+    //set runTail to current thread
+    runTail = &tcbs[spot];
+    //other init
+    tcbs[spot].active = 1;
+    tcbs[spot].sleep = 0;
+    tcbs[spot].id = currentId;
   } else if(numThreads == 0) {
+    SetInitialStack(0);
+    Stacks[0][STACKSIZE-2] = (int32_t)(task);
     tcbs[0].next = &tcbs[0];
     tcbs[0].prev = &tcbs[0];
+    runHead = &tcbs[0];
+    runTail = &tcbs[0];
+    tcbs[0].active = 1;
+    tcbs[0].sleep = 0;
+    tcbs[0].id = 0;
     RunPt = &tcbs[0]; //init runpt
   } else {
     return 0;
@@ -220,9 +292,17 @@ void OS_Kill(void){
   //Remove thread from linked list
   RunPt->prev->next = RunPt->next;
   RunPt->next->prev = RunPt->prev;
+  //Set tcb to be available to use
+  RunPt->active = 0;
+  //Fix head and tail
+  if(RunPt == runHead)
+    runHead = RunPt->next;
+  if(RunPt == runTail)
+    runTail = RunPt->prev;
+  
+  numThreads--;
   //2 trigger pendsv, context switch
   NVIC_INT_CTRL_R |= 0x10000000;
-  //RunPt = RunPt->next;
  
   OS_EnableInterrupts();
 }
@@ -246,7 +326,7 @@ void OS_Sleep(unsigned long sleepTime){
   }
   
   //trigger pendsv, contex switch
-  //NVIC_INT_CTRL_R |= 0x10000000;
+  NVIC_INT_CTRL_R |= 0x10000000;
   EndCritical(status);
 }
 
@@ -288,7 +368,7 @@ int OS_AddPeriodicThread(void(*task)(void),unsigned long period, unsigned long p
 	NVIC_PRI8_R = (NVIC_PRI8_R&0x00FFFFFF)|(priority<<29); // 0x80000000/4 = 2^29
 // interrupts enabled in the main program after all devices initialized
 // vector number 51, interrupt number 35
-  NVIC_EN1_R = 1<<(35-32);      // 9) enable IRQ 35 in NVIC
+  NVIC_EN1_R |= 1<<(35-32);      // 9) enable IRQ 35 in NVIC
   TIMER3_CTL_R = 0x00000001;    // 10) enable TIMER3A
 	return 0;
 }
@@ -447,9 +527,10 @@ unsigned long OS_MailBox_Recv(void) {
 // It is ok to change the resolution and precision of this function as long as 
 //   this function and OS_TimeDifference have the same resolution and precision 
 unsigned long OS_Time(void){
-  uint32_t value; int32_t status;
+  unsigned long value; int32_t status;
   status = StartCritical();
-  value = NVIC_ST_RELOAD_R - NVIC_ST_CURRENT_R + (NVIC_ST_RELOAD_R + 1)*CountTimeSlice;
+  //value = NVIC_ST_RELOAD_R - NVIC_ST_CURRENT_R + (NVIC_ST_RELOAD_R + 1)*CountTimeSlice;
+  value = TIMER4_TAILR_R - TIMER4_TAV_R + sysTime*TIME_1MS;
   EndCritical(status);
   return value;
 }
@@ -472,7 +553,8 @@ unsigned long OS_TimeDifference(unsigned long start, unsigned long stop){
 // You are free to change how this works
 void OS_ClearMsTime(void){
   int32_t status; status = StartCritical();
-  CountTimeSlice = 0;
+  //CountTimeSlice = 0;
+  sysTime = 0;
   EndCritical(status);
 }
 
@@ -483,6 +565,7 @@ void OS_ClearMsTime(void){
 // You are free to select the time resolution for this function
 // It is ok to make the resolution to match the first call to OS_AddPeriodicThread
 unsigned long OS_MsTime(void){
-  //assuming 80MHz
-  return CountTimeSlice*(NVIC_ST_RELOAD_R+1)/TIME_1MS;
+  //return CountTimeSlice*(NVIC_ST_RELOAD_R+1)/TIME_1MS;
+  //return CountTimeSlice;
+  return sysTime;
 }

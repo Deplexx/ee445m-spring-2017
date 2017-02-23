@@ -220,7 +220,7 @@ void ADC_InitADC0SS2_Timer(uint32_t channelNum){
   ADC0_ACTSS_R |= 0x04;          // enable sample sequencer 2
 
   NVIC_PRI4_R = (NVIC_PRI4_R&0xFFFFFF00)|0x00000040; //priority 2
-  NVIC_EN0_R = 1<<16;              // enable interrupt 16 in NVIC
+  NVIC_EN0_R |= 1<<16;              // enable interrupt 16 in NVIC
 }
 
 // *** ADC_InitADC0SS3_Timer ***
@@ -246,7 +246,7 @@ void ADC_InitADC0SS3_Timer(uint32_t channelNum){
   ADC0_ACTSS_R |= 0x08;          // enable sample sequencer 3
 
   NVIC_PRI4_R = (NVIC_PRI4_R&0xFFFF00FF)|0x00004000; //priority 2
-  NVIC_EN0_R = 1<<17;              // enable interrupt 17 in NVIC
+  NVIC_EN0_R |= 1<<17;              // enable interrupt 17 in NVIC
 }
 
 // *** ADC_InitADC0SS3_Timer ***

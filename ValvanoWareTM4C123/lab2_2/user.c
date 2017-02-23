@@ -40,7 +40,7 @@ void OS_EnableInterrupts(void);
 static void incr(void);
 
 static int c = 0;
-Sema4Type sema;
+Sema4Type semaUser;
 
 
 int done1 = 0;
@@ -57,7 +57,7 @@ static void incr2(void) {
     while(true) {}
 }
 
-static void incr3(void) {
+void incr3(void) {
     incr();
     while(true) {}
 }
@@ -67,7 +67,7 @@ static void incr(void) {
         ST7735_Message(0, i % 8, "", ++c);
 }
 
-static void done(void) {
+void done(void) {
     while(!(done1 || done2 || done3)) {}
 
     OS_DisableInterrupts();
@@ -79,7 +79,7 @@ int notrealmain(void) {
   OS_Init();           // initialize, disable interrupts
   ST7735_InitR(INITR_REDTAB);
   //ST7735_OutUDec(c);
-  OS_InitSemaphore(&sema, 0);
+  OS_InitSemaphore(&semaUser, 0);
   OS_AddThread(&incr1,128,1);
   OS_AddThread(&incr2,128,1);
   //OS_AddThread(&incr3,128,1);

@@ -34,6 +34,10 @@
         EXPORT  StartOS
         EXPORT  SysTick_Handler
 		EXPORT  PendSV_Handler
+		EXPORT  OS_Signal
+		EXPORT  OS_Wait
+		EXPORT  OS_bSignal
+		EXPORT  OS_bWait
 		
 		EXTERN  CountTimeSlice
 
@@ -58,9 +62,8 @@ SysTick_Handler                ; 1) Saves R0-R3,R12,LR,PC,PSR
 	EOR     R1, #0x02
 	STR     R1, [R0]
 	LDR     R0, =CountTimeSlice  ;increment timer
-	LDR     R0, [R0]
 	LDR     R1, [R0]
-	ADD     R1, #1
+	ADD     R1, R1, #1
 	STR     R1, [R0]
     PUSH    {R4-R11}           ; 3) Save remaining regs r4-11
 	MOV     R0, #0xD000D000
@@ -132,7 +135,7 @@ OS_Wait_store_back
 OS_Wait
     LDREX R1, [R0]
     CMP R1, #0
-    BNE OS_Wait_store_back
+    BLT OS_Wait_store_back
     ADD R1, R1, #-1
     STREX R2, R1, [R0]
     CMP R2, #0
