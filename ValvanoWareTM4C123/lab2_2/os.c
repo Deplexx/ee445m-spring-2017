@@ -341,6 +341,10 @@ void OS_Kill(void){
 // OS_Sleep(0) implements cooperative multitasking
 void OS_Sleep(unsigned long sleepTime){
   //int32_t status; status = StartCritical();
+#if DEBUG
+  UART_OutString("TID: "); UART_OutUDec(RunPt->id); UART_OutString(" is going to sleep."); UART_OutCRLF();
+  UART_OutString("Switching to TID: "); UART_OutUDec(RunPt->next->id); UART_OutCRLF();
+#endif
   OS_DisableInterrupts();
   //check if sleeptime > 0 and not running single thread
   if(sleepTime > 0 && RunPt->next != RunPt){
@@ -348,11 +352,6 @@ void OS_Sleep(unsigned long sleepTime){
     thisTcb->sleep = sleepTime;
   }
   
-#if DEBUG
-  //UART_OutString("TID: "); UART_OutUDec(RunPt->id); UART_OutString(" is going to sleep."); UART_OutCRLF();
-  //UART_OutString("Switching to TID: "); UART_OutUDec(RunPt->next->id); UART_OutCRLF();
-#endif
-
   //trigger pendsv, contex switch
   NVIC_INT_CTRL_R |= 0x10000000;
   OS_EnableInterrupts();
