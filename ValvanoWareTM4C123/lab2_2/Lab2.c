@@ -331,7 +331,7 @@ int main(void){
 
 //********initialize communication channels
   OS_MailBox_Init();
-  OS_Fifo_Init(128);    // ***note*** 4 is not big enough*****
+  OS_Fifo_Init(32);    // ***note*** 4 is not big enough*****
 
 //*******attach background tasks***********
   OS_AddSW1Task(&SW1Push,2);
@@ -347,7 +347,7 @@ int main(void){
   NumCreated += OS_AddThread(&Consumer,128,1);
   NumCreated += OS_AddThread(&PID,128,3);  // Lab 3, make this lowest priority
  
-  OS_Launch(TIME_2MS); // doesn't return, interrupts enabled in here
+  OS_Launch(TIME_1MS * 10); // doesn't return, interrupts enabled in here
   return 0;            // this never executes
 }
 
