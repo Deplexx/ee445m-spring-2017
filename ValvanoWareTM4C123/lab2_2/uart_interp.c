@@ -59,11 +59,6 @@ void Interpreter(void) {
 
   //PLL_Init(Bus80MHz);       // set system clock to 50 MHz
   //UART_Init();              // initialize UART
-
-  UART_OutCRLF();
-  UART_OutString("ABCDEFGHIJKLMNOPQRSTUVWXYZ");
-  UART_OutString("abcdefghijklmnopqrstuvwxyz");
-  UART_OutString("0123456789");
   
   while(true) {
     UART_OutString("> ");

@@ -39,6 +39,9 @@
         .global  OS_Signal
         .global  OS_bSignal
 
+DEBUG .equ 1
+        .def DEBUG
+
         .ref CountTimeSlice
 CountTimeSlicePtr .field CountTimeSlice, 32
 
@@ -66,18 +69,14 @@ PF2Ptr .field PF2, 32
 
 PendSV_Handler: .asmfunc
  CPSID   I                  ; 2) Prevent interrupt during switch
-  LDR     R0, PF1Ptr           ; toggle heartbeat
-  LDR     R0, [R0]
+  .if DEBUG      ; toggle heartbeat
+  LDR     R0, PF2Ptr           ; toggle heartbeat
   LDR     R1, [R0]
-  EOR     R1, #0x02
+  EOR     R1, #0x04
   STR     R1, [R0]
-  EOR     R1, #0x02
+  EOR     R1, #0x04
   STR     R1, [R0]
-  LDR     R0, CountTimeSlicePtr  ;increment timer
-  LDR     R0, [R0]
-  LDR     R1, [R0]
-  ADD     R1, #1
-  STR     R1, [R0]
+  .endif
   PUSH    {R4-R11}           ; 3) Save remaining regs r4-11
   MOV     R0, #0xD000D000
   PUSH    {R0}
@@ -95,29 +94,26 @@ PendSV_Next_Thread:
   STR     R1, [R0]           ;    RunPt = R1
   LDR     SP, [R1]           ; 7) new thread SP; SP = RunPt->sp;
   POP     {R4-R11}           ; 8) restore regs r4-11
-  LDR     R0, PF1Ptr           ; toggle heartbeat
-  LDR     R0, [R0]
+  .if DEBUG
+  LDR     R0, PF2Ptr           ; toggle heartbeat
   LDR     R1, [R0]
-  EOR     R1, #0x02
+  EOR     R1, #0x04
   STR     R1, [R0]
+  .endif
   CPSIE   I                  ; 9) tasks run with interrupts enabled
   BX      LR                 ; 10) restore R0-R3,R12,LR,PC,PSR
   .endasmfunc
 
 SysTick_Handler:  .asmfunc     ; 1) Saves R0-R3,R12,LR,PC,PSR
   CPSID   I                  ; 2) Prevent interrupt during switch
+  .if DEBUG      ; toggle heartbeat
   LDR     R0, PF1Ptr           ; toggle heartbeat
-  LDR     R0, [R0]
   LDR     R1, [R0]
   EOR     R1, #0x02
   STR     R1, [R0]
   EOR     R1, #0x02
   STR     R1, [R0]
-  LDR     R0, CountTimeSlicePtr  ;increment timer
-  LDR     R0, [R0]
-  LDR     R1, [R0]
-  ADD     R1, #1
-  STR     R1, [R0]
+  .endif
   PUSH    {R4-R11}           ; 3) Save remaining regs r4-11
   MOV     R0, #0xD000D000
   PUSH    {R0}
@@ -135,11 +131,12 @@ SysTick_Next_Thread:
   STR     R1, [R0]           ;    RunPt = R1
   LDR     SP, [R1]           ; 7) new thread SP; SP = RunPt->sp;
   POP     {R4-R11}           ; 8) restore regs r4-11
+  .if DEBUG
   LDR     R0, PF1Ptr           ; toggle heartbeat
-  LDR     R0, [R0]
   LDR     R1, [R0]
   EOR     R1, #0x02
   STR     R1, [R0]
+  .endif
   CPSIE   I                  ; 9) tasks run with interrupts enabled
   BX      LR                 ; 10) restore R0-R3,R12,LR,PC,PSR
  .endasmfunc

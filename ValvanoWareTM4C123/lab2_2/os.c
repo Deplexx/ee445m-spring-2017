@@ -27,6 +27,9 @@
 #include <stdlib.h>
 
 #include "../inc/tm4c123gh6pm.h"
+#include "../inc/hw_memmap.h"
+#include "../driverlib/sysctl.h"
+#include "../driverlib/gpio.h"
 
 #include "FIFO.h"
 #include "LED.h"
@@ -96,6 +99,8 @@ static Sema4Type mailRecv;
 static Sema4Type mailLock;
 static unsigned long Mail;
 
+static void Port_BInit(void);
+
 void InitAllTCBs(void){
   for(int k=0; k<MAXTHREADS; k++){
     tcbs[k].sp = 0;
@@ -134,6 +139,11 @@ void OS_InitSysTimer(void){
   //TIMER4_CTL_R = 0x00000001;    // 10) enable TIMER3A
 }
 
+static void Port_BInit(void) {
+    SysCtlPeripheralEnable(SYSCTL_PERIPH_GPIOB);    // enable port B
+    GPIOPinTypeGPIOOutput(GPIO_PORTB_BASE, GPIO_PIN_0|GPIO_PIN_1|GPIO_PIN_2); // enable outputs on the launchpad LED pins
+}
+
 // ******** OS_Init ************
 // initialize operating system, disable interrupts until OS_Launch
 // initialize OS controlled I/O: systick, 50 MHz PLL
@@ -163,6 +173,10 @@ void OS_Init(void){
   GPIO_PORTF_PUR_R |= 0x11;         // enable pull-up on PF0 and PF4
   GPIO_PORTF_DEN_R |= 0x1F;         // 7) enable digital I/O on PF4-0
   
+#if DEBUG
+  Port_BInit();
+#endif
+
   //configure switch interrupts
   GPIO_PORTF_IS_R  &= ~0x11; //PF0,PF4 edge interrupts
   GPIO_PORTF_IBE_R &= ~0x11; //PF0,PF4 single edge interrupt
@@ -327,6 +341,10 @@ void OS_Kill(void){
 // OS_Sleep(0) implements cooperative multitasking
 void OS_Sleep(unsigned long sleepTime){
   //int32_t status; status = StartCritical();
+#if DEBUG
+  UART_OutString("TID: "); UART_OutUDec(RunPt->id); UART_OutString(" is going to sleep."); UART_OutCRLF();
+  UART_OutString("Switching to TID: "); UART_OutUDec(RunPt->next->id); UART_OutCRLF();
+#endif
   OS_DisableInterrupts();
   //check if sleeptime > 0 and not running single thread
   if(sleepTime > 0 && RunPt->next != RunPt){
@@ -488,7 +506,13 @@ void OS_InitSemaphore(Sema4Type *semaPt, long value) {
 }
 
 void OS_Fifo_Init(unsigned long size) { //size is ignored for lab 2
-    OS_InitSemaphore(&fifoFull, OS_FIFOSIZE - 1);
+    unsigned long fifoSize;
+
+    if(size <= 128 && size > 0)
+        fifoSize = size;
+    else
+        fifoSize = 128;
+    OS_InitSemaphore(&fifoFull, fifoSize - 1);
     OS_InitSemaphore(&fifoEmpty, -1);
     OS_InitSemaphore(&fifoLock, 0);
     OSFifo_Init();
