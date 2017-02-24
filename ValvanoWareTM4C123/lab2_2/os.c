@@ -131,7 +131,7 @@ void OS_InitSysTimer(void){
 // interrupts enabled in the main program after all devices initialized
 // vector number 51, interrupt number 35
   NVIC_EN2_R |= 1<<(70%32);      // 9) enable IRQ 86 in NVIC; 2 = 70/32 = 2, 2*32 = 64; 70 = 86 - 16
-  TIMER4_CTL_R = 0x00000001;    // 10) enable TIMER3A
+  //TIMER4_CTL_R = 0x00000001;    // 10) enable TIMER3A
 }
 
 // ******** OS_Init ************
@@ -282,6 +282,7 @@ int OS_AddThread(void(*task)(void), unsigned long stackSize, unsigned long prior
 void OS_Launch(uint32_t theTimeSlice){
   NVIC_ST_RELOAD_R = theTimeSlice - 1; // reload value
   NVIC_ST_CTRL_R = 0x00000007; // enable, core clock and interrupt arm
+  TIMER4_CTL_R = 0x00000001;    // 10) enable TIMER4A
   StartOS();                   // start on the first task
 }
 
@@ -331,35 +332,6 @@ void OS_Sleep(unsigned long sleepTime){
   if(sleepTime > 0 && RunPt->next != RunPt){
     tcbType *thisTcb = RunPt;
     thisTcb->sleep = sleepTime;
-    
-    //Remove thread from current run list
-    thisTcb->prev->next = thisTcb->next;
-    thisTcb->next->prev = thisTcb->prev;
-    
-    //config dummyTcb as RunPt
-    dummyTcb.sp = thisTcb->sp;
-    dummyTcb.next = thisTcb->next;
-    RunPt = &dummyTcb;
-
-    //insert into sleeping list
-    sleepyTail.prev->next = thisTcb;
-    thisTcb->prev = sleepyTail.prev;
-    thisTcb->next = &sleepyTail;
-    sleepyTail.prev = thisTcb;
-    
-   /*
-    if(!sleepyHead){
-      sleepyHead = thisTcb;
-      sleepyTail = thisTcb;
-      thisTcb->prev = thisTcb;
-      //thicTcb->next = 0;
-    }else{
-      thisTcb->prev = sleepyTail;
-      sleepyTail->next = thisTcb;
-      sleepyHead->prev = thisTcb;
-      sleepyTail = thisTcb;
-    }
-    */
   }
   
   //trigger pendsv, contex switch
@@ -373,106 +345,17 @@ void Timer4A_Handler(void){
   int32_t status; status = StartCritical();
   sysTime++;
   
-  tcbType *thisTcb = sleepyHead.next;
-  //tcbType cp;
-  //tcbType *insertHead;
-  //tcbType *insertTail;
-  
-  while(thisTcb != &sleepyTail){
-    if(thisTcb->sleep == 0){
-      tcbType *nextTcb = thisTcb->next;
-      //fix sleeping list
-      thisTcb->prev->next = thisTcb->next;
-      thisTcb->next->prev = thisTcb->prev;
-      //insert back into running list
-      thisTcb->next = runHead;
-      thisTcb->prev = runTail;
-      runHead->prev = thisTcb;
-      runTail->next = thisTcb;
-      //assuming more than 1 thread
-      runTail = thisTcb;
-      //increment
-      thisTcb = nextTcb;
-      //
-      RunPt = thisTcb;
-    } else {
-      thisTcb->sleep--;
-      thisTcb = thisTcb->next;
-    }
-  }
-  
-  //no sleepers
-  /*
-  if(sleepyHead == 0){
-    EndCritical(status);
-    return;
-  }
-  */
-  //1 sleeper
-  /*
-  if(sleepyHead == sleepyTail){
-    if(sleepyHead->sleep > 0){
-      sleepyHead->sleep--;
-      EndCritical(status);
-      return;
-    }
-    runHead->prev = sleepyHead;
-    runTail->next = sleepyHead;
-    sleepyHead->prev = runTail;
-    sleapyHead->next = runHead;
-    sleepyHead = 0;
-    sleepyTail = 0;
-    EndCritical(status);
-    return;
-  }*/
-  /*
-  sleepyTail->next = sleepyHead;
-  sleepyHead->prev = sleepyTail;
-  tcbType *thisTcb = sleepyTail;
-  
-  bool done = false;
-  do{
-    if(sleepyHead == sleepyTail){
-      if(sleepyHead->sleep > 0){
-        sleepyHead->sleep--;
-        EndCritical(status);
-        return;
-      }
-      runHead->prev = sleepyHead;
-      runTail->next = sleepyHead;
-      sleepyHead->prev = runTail;
-      sleepyHead->next = runHead;
-      sleepyHead = 0;
-      sleepyTail = 0;
-      EndCritical(status);
-      return;
-    }
-    tcbType *prevTcb = thisTcb->prev;
-    if(thisTcb->sleep == 0){
-      
-      //fix sleeping thread list
-      thisTcb->prev->next = thisTcb->next;
-      thisTcb->next->prev = thisTcb->prev;
-      if(thisTcb == sleepyTail)
-        sleepyTail = sleepyTail->next;
-      //add thread back to run thread list
-      runHead->prev = thisTcb;
-      runTail->next = thisTcb;
-      thisTcb->prev = runTail;
-      thisTcb->next = runHead;
-      runTail = thisTcb;
-    }else{
-      thisTcb->sleep--;
-    }
-    
-    if(done)
-      break;
-    else if(thisTcb == sleepyTail)
-      done = true;7
-    
-    thisTcb = prevTcb;
-  }while(true);
-  */
+  tcbType *t;
+  for(t = RunPt;
+      t->next != RunPt;
+      t = t->next)
+      if(t->sleep > 0)
+          t->sleep--;
+
+  if(t->sleep > 0)
+      t->sleep--;
+
+
   EndCritical(status);
 }
 
