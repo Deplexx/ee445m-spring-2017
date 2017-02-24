@@ -1635,43 +1635,45 @@ void ST7735_Message(int device, int line, char *string, int value) {
 }
 
 static void message(int device, int line, char *string, int value) {
-    int y, x, div;
+  int y, x, div;
 
-    if(device>1 || device<0) return;
-    if(line>7 || line<0) return;
+  if(device>1 || device<0) return;
+  if(line>7 || line<0) return;
 
-    x=0;
-    y = (device ? 80:0) + line*10;
-    div = 1;
-    uint16_t textColor = device ? ST7735_GREEN : ST7735_BLACK;
-    uint16_t bgColor = device ? ST7735_BLUE : ST7735_YELLOW;
+  x=0;
+  y = (device ? 80:0) + line*10;
+  div = 1;
+  uint16_t textColor = device ? ST7735_GREEN : ST7735_BLACK;
+  uint16_t bgColor = device ? ST7735_BLUE : ST7735_YELLOW;
 
-    while(*string){
-      ST7735_DrawChar(x*6, y, *string, textColor, bgColor, 1);
-      string++;
-      x = x+1;
-      if(x>20) return;
-    }
+  while(*string){
+    ST7735_DrawChar(x*6, y, *string, textColor, bgColor, 1);
+    string++;
+    x = x+1;
+    if(x>20) return;
+  }
+  x++;
+
+  if(value==0){
+    ST7735_DrawChar(x*6, y, '0', textColor, bgColor, 1);
+    return;
+  } else if(value<0) {
+    ST7735_DrawChar(x*6, y, '-', textColor, bgColor, 1);
+    value = 0-value;
     x++;
+  }
 
-    if(value==0){
-      ST7735_DrawChar(x*6, y, '0', textColor, bgColor, 1);
-          return;
-      } else if(value<0) {
-      ST7735_DrawChar(x*6, y, '-', textColor, bgColor, 1);
-          value = 0-value;
-          x++;
-      }
+  while(div<=value){
+    div = div*10;
+  }
 
-      while(div<=value){
-          div = div*10;
-      }
-
-      while(div>1){
-          div = div/10;
-          char outchar = value/div + '0';
-          value = value%div;
-          ST7735_DrawChar(x*6, y, outchar, textColor, bgColor, 1);
-          x++;
-      }
+  while(div>1){
+    div = div/10;
+    char outchar = value/div + '0';
+    value = value%div;
+        ST7735_DrawChar(x*6, y, outchar, textColor, bgColor, 1);
+        x++;
+  }
+  
+  ST7735_FillRect(x*6, y-1, 160-x, 10, bgColor);
 }
