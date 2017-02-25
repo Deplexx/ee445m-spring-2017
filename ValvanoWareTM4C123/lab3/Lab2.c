@@ -321,7 +321,7 @@ unsigned long myId = OS_Id();
 //--------------end of Task 5-----------------------------
 
 //*******************final user main DEMONTRATE THIS TO TA**********
-int main(void){
+int realmain(void){
   OS_Init();           // initialize, disable interrupts
   PortE_Init();
   ST7735_InitR(INITR_REDTAB);

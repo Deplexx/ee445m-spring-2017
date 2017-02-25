@@ -58,15 +58,7 @@ void StartOS(void);
 
 #define MAXTHREADS  20        // maximum number of threads
 #define STACKSIZE   100      // number of 32-bit words in stack
-struct tcb{
-  int32_t *sp;       // pointer to stack (valid for threads not running
-  struct tcb *next;  // linked-list pointer
-  struct tcb *prev;  // doubly-linked
-  uint32_t id;
-  int32_t sleep;
-  uint32_t active;
-};
-typedef struct tcb tcbType;
+
 tcbType tcbs[MAXTHREADS];
 tcbType *RunPt;
 int32_t Stacks[MAXTHREADS][STACKSIZE];
@@ -100,6 +92,9 @@ static Sema4Type mailLock;
 static unsigned long Mail;
 
 static void Port_BInit(void);
+
+void BlockThread(Sema4Type *sema);
+void UnblockThread(Sema4Type *sema);
 
 void InitAllTCBs(void){
   for(int k=0; k<MAXTHREADS; k++){
@@ -621,4 +616,49 @@ unsigned long OS_MsTime(void){
   //return CountTimeSlice*(NVIC_ST_RELOAD_R+1)/TIME_1MS;
   //return CountTimeSlice;
   return sysTime;
+}
+
+void BlockThread(Sema4Type *sema) {
+    OS_DisableInterrupts();
+
+    tcbType *t = sema->next;
+    if(t != NULL) {
+        while(t->bNext != NULL)
+            t = t->bNext;
+        t->bNext = RunPt;
+    } else
+      sema->next = RunPt;
+
+    if(RunPt->bNext != NULL)
+        exit(1);
+
+    RunPt->blocked = 1;
+
+    //2 trigger pendsv
+    NVIC_INT_CTRL_R |= 0x10000000;
+    OS_EnableInterrupts();
+
+#if DEBUG
+    //UART_OutString("Thread "); UART_OutUDec(RunPt->id); UART_OutStringCRLF(" is now blocked.");
+#endif
+}
+
+void UnblockThread(Sema4Type *sema) {
+    OS_DisableInterrupts();
+
+    tcbType *t = sema->next;
+    if(t != NULL) {
+        sema->next = sema->next->bNext;
+        t->bNext = NULL;
+        t->blocked = 0;
+    }
+
+    //2 trigger pendsv
+    NVIC_INT_CTRL_R |= 0x10000000;
+    OS_EnableInterrupts();
+
+#if DEBUG
+    if(t != NULL) {}
+        //UART_OutString("Thread "); UART_OutUDec(t->id); UART_OutStringCRLF(" is now unblocked.");
+#endif
 }

@@ -38,6 +38,8 @@
         .global  OS_bWait
         .global  OS_Signal
         .global  OS_bSignal
+        .ref     BlockThread
+        .ref     UnblockThread
 
 DEBUG .equ 1
         .def DEBUG
@@ -86,10 +88,13 @@ PendSV_Handler: .asmfunc
   STR     SP, [R1]           ; 5) Save SP into TCB
 PendSV_Next_Thread:
   LDR     R1, [R1,#4]        ; 6) R1 = RunPt->next
-
   LDR     R2, [R1,#16]       ; RunPt->next->sleep
   CMP     R2, #0
   BNE     PendSV_Next_Thread
+  LDR     R2, [R1, #28]      ; RunPt->next->blocked
+  CMP     R2, #0             ; is thread blocked?
+  BNE     PendSV_Next_Thread
+
 
   STR     R1, [R0]           ;    RunPt = R1
   LDR     SP, [R1]           ; 7) new thread SP; SP = RunPt->sp;
@@ -123,9 +128,11 @@ SysTick_Handler:  .asmfunc     ; 1) Saves R0-R3,R12,LR,PC,PSR
   STR     SP, [R1]           ; 5) Save SP into TCB
 SysTick_Next_Thread:
   LDR     R1, [R1,#4]        ; 6) R1 = RunPt->next
-
   LDR     R2, [R1,#16]       ; RunPt->next->sleep
   CMP     R2, #0
+  BNE     SysTick_Next_Thread
+  LDR     R2, [R1, #28]      ; RunPt->next->blocked
+  CMP     R2, #0             ; is thread blocked?
   BNE     SysTick_Next_Thread
 
   STR     R1, [R0]           ;    RunPt = R1
@@ -158,8 +165,14 @@ StartOS:  .asmfunc
    ; void OS_Wait(Sema4Type *semaPt)
 OS_Wait_store_back:
     STREX R2, R1, [R0]
+    CMP R2, #0
+    ITTT EQ
+    PUSHEQ  {LR}
+    BLEQ BlockThread
+    POPEQ   {LR}
+    BX LR
 OS_Wait: .asmfunc
-    LDREX R1, [R0]
+    LDREX R1, [R0] ; R0 = &sema
     CMP R1, #0
     BLT OS_Wait_store_back
     ADD R1, R1, #-1
@@ -172,6 +185,12 @@ OS_Wait: .asmfunc
 ; void OS_bWait(Sema4Type *semaPt)
 OS_bWait_store_back:
     STREX R2, R1, [R0]
+    CMP R2, #0  ; strex succeded?
+    ITTT EQ
+    PUSHEQ  {LR}
+    BLEQ BlockThread
+    POPEQ   {LR}
+    BX LR
 OS_bWait: .asmfunc
     LDREX R1, [R0]
     CMP R1, #0
@@ -190,6 +209,9 @@ OS_Signal: .asmfunc
     STREX R2, R1, [R0]
     CMP R2, #0
     BNE OS_Signal
+    PUSH  {LR}
+    BL UnblockThread
+    POP   {LR}
     BX LR
     .endasmfunc
 
@@ -200,6 +222,9 @@ OS_bSignal: .asmfunc
     STREX R2, R1, [R0]
     CMP R2, #0
     BNE OS_bSignal
+    PUSH  {LR}
+    BL UnblockThread
+    POP   {LR}
     BX LR
     .endasmfunc
 

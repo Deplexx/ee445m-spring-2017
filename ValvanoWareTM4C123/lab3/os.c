@@ -462,6 +462,7 @@ int OS_AddSW1Task(void(*task)(void), unsigned long priority){
   }else{
     SW1Task = task;
     SW1TaskPri = priority + SWPRI;
+    NVIC_EN0_R |= 0x40000000; //enable interrupt 30 in NVIC for PortF
     EndCritical(status);
     return 1;
   }
@@ -499,6 +500,7 @@ int OS_AddSW2Task(void(*task)(void), unsigned long priority){
   }else{
     SW2Task = task;
     SW2TaskPri = priority + SWPRI;
+    NVIC_EN0_R |= 0x40000000; //enable interrupt 30 in NVIC for PortF
     EndCritical(status);
     return 1;
   }
@@ -513,15 +515,15 @@ void GPIOPortF_Handler(void){
   SW2pressed = (~value) & 0x01; //PF0
   
   if(SW1Task && SW1pressed)
-    SW1Task();
-      //OS_AddThread(&SW1TaskWrapper, 128 , SW1TaskPri);
+    //SW1Task();
+      OS_AddThread(&SW1TaskWrapper, 128 , SW1TaskPri);
   
   if(SW2Task && SW2pressed)
-    SW2Task();
-      //OS_AddThread(&SW2TaskWrapper, 128 , SW2TaskPri);
+    //SW2Task();
+      OS_AddThread(&SW2TaskWrapper, 128 , SW2TaskPri);
 
   //2 trigger pendsv
-  //NVIC_INT_CTRL_R |= 0x10000000;
+  NVIC_INT_CTRL_R |= 0x10000000;
 }
 
 void OS_InitSemaphore(Sema4Type *semaPt, long value) {

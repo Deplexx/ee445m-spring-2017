@@ -41,12 +41,23 @@
 #define BLUE      0x04
 #define GREEN     0x08
 
+typedef struct tcb{
+  int32_t *sp;       // pointer to stack (valid for threads not running
+  struct tcb *next;  // linked-list pointer
+  struct tcb *prev;  // doubly-linked
+  uint32_t id;
+  int32_t sleep;
+  uint32_t active;
+  int32_t pri;
+  int32_t blocked;
+  struct tcb *bNext;
+} tcbType;
+
 // feel free to change the type of semaphore, there are lots of good solutions
-struct  Sema4{
-  long Value;   // >0 means free, otherwise means busy        
-// add other components here, if necessary to implement blocking
-};
-typedef struct Sema4 Sema4Type;
+typedef struct Sema4{
+  long Value;   // >0 means free, otherwise means busy
+  tcbType *next;
+} Sema4Type;
 
 // ******** OS_Init ************
 // initialize operating system, disable interrupts until OS_Launch
