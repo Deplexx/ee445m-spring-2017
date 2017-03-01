@@ -36,8 +36,6 @@
         .global  SysTick_Handler
         .global  OS_Wait
         .global  OS_bWait
-        .global  OS_Signal
-        .global  OS_bSignal
         .ref     BlockThread
         .ref     UnblockThread
 
@@ -164,12 +162,10 @@ StartOS:  .asmfunc
 
    ; void OS_Wait(Sema4Type *semaPt)
 OS_Wait_store_back:
-    STREX R2, R1, [R0]
-    CMP R2, #0
-    ITTT EQ
-    PUSHEQ  {LR}
-    BLEQ BlockThread
-    POPEQ   {LR}
+    PUSH  {LR}
+    BL BlockThread
+    POP   {LR}
+    DMB
     BX LR
 OS_Wait: .asmfunc
     LDREX R1, [R0] ; R0 = &sema
@@ -179,17 +175,19 @@ OS_Wait: .asmfunc
     STREX R2, R1, [R0]
     CMP R2, #0
     BNE OS_Wait
+    DMB
     BX LR
     .endasmfunc
 
 ; void OS_bWait(Sema4Type *semaPt)
 OS_bWait_store_back:
-    STREX R2, R1, [R0]
-    CMP R2, #0  ; strex succeded?
-    ITTT EQ
-    PUSHEQ  {LR}
-    BLEQ BlockThread
-    POPEQ   {LR}
+;    STREX R2, R1, [R0]
+    ;CMP R2, #0
+    ;BNE OS_bWait
+    PUSH  {LR}
+    BL BlockThread
+    POP   {LR}
+    DMB
     BX LR
 OS_bWait: .asmfunc
     LDREX R1, [R0]
@@ -199,32 +197,7 @@ OS_bWait: .asmfunc
     STREX R2, R1, [R0]
     CMP R2, #0
     BNE OS_bWait
-    BX LR
-    .endasmfunc
-
-; void OS_bSignal(Sema4Type *semaPt)
-OS_Signal: .asmfunc
-    LDREX R1, [R0]
-    ADD R1, R1, #1
-    STREX R2, R1, [R0]
-    CMP R2, #0
-    BNE OS_Signal
-    PUSH  {LR}
-    BL UnblockThread
-    POP   {LR}
-    BX LR
-    .endasmfunc
-
-; void OS_bSignal(Sema4Type *semaPt)
-OS_bSignal: .asmfunc
-    LDREX R1, [R0]
-    MOV R1, #0
-    STREX R2, R1, [R0]
-    CMP R2, #0
-    BNE OS_bSignal
-    PUSH  {LR}
-    BL UnblockThread
-    POP   {LR}
+    DMB
     BX LR
     .endasmfunc
 

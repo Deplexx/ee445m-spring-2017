@@ -1675,5 +1675,5 @@ static void message(int device, int line, char *string, int value) {
         x++;
   }
   
-  ST7735_FillRect(x*6, y-1, 160-x, 10, bgColor);
+  //ST7735_FillRect(x*6, y-1, 160-x, 10, bgColor);
 }

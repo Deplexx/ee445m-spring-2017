@@ -321,7 +321,7 @@ unsigned long myId = OS_Id();
 //--------------end of Task 5-----------------------------
 
 //*******************final user main DEMONTRATE THIS TO TA**********
-int realmain(void){
+int main(void){
   OS_Init();           // initialize, disable interrupts
   PortE_Init();
   ST7735_InitR(INITR_REDTAB);
@@ -331,7 +331,7 @@ int realmain(void){
 
 //********initialize communication channels
   OS_MailBox_Init();
-  OS_Fifo_Init(32);    // ***note*** 4 is not big enough*****
+  OS_Fifo_Init(128);    // ***note*** 4 is not big enough*****
 
 //*******attach background tasks***********
   OS_AddSW1Task(&SW1Push,2);
@@ -347,7 +347,7 @@ int realmain(void){
   NumCreated += OS_AddThread(&Consumer,128,1);
   NumCreated += OS_AddThread(&PID,128,3);  // Lab 3, make this lowest priority
  
-  OS_Launch(TIME_1MS); // doesn't return, interrupts enabled in here
+  OS_Launch(TIME_2MS); // doesn't return, interrupts enabled in here
   return 0;            // this never executes
 }
 

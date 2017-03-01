@@ -63,11 +63,11 @@
 // SS3 1st sample source: programmable using variable 'channelNum' [0:11]
 // SS3 interrupts: enabled and promoted to controller
 
-void DisableInterrupts(void); // Disable interrupts
-void EnableInterrupts(void);  // Enable interrupts
+//void DisableInterrupts(void); // Disable interrupts
+//void EnableInterrupts(void);  // Enable interrupts
 long StartCritical (void);    // previous I bit, disable interrupts
 void EndCritical(long sr);    // restore I bit to previous value
-void WaitForInterrupt(void);  // low power mode
+//void WaitForInterrupt(void);  // low power mode
 
 // Periodic Tasks for each Sample Sequencer
 void (*ADC0SS0Task)(unsigned long);

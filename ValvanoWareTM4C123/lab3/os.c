@@ -66,6 +66,21 @@ int32_t Stacks[MAXTHREADS][STACKSIZE];
 int numThreads = 0;
 int currentId = 0;
 
+#if DEBUG
+unsigned static long time11 = 0;  // time at previous ADC sample
+unsigned long time21 = 0;         // time at current ADC sample
+long MaxJitter1;             // largest time jitter between interrupts in usec
+#define JITTERSIZE 64
+unsigned long const JitterSize1=JITTERSIZE;
+unsigned long JitterHistogram1[JITTERSIZE]={0,};
+
+unsigned static long time12 = 0;  // time at previous ADC sample
+unsigned long time22 = 0;         // time at current ADC sample
+long MaxJitter2;             // largest time jitter between interrupts in usec
+unsigned long const JitterSize2=JITTERSIZE;
+unsigned long JitterHistogram2[JITTERSIZE]={0,};
+#endif
+
 //"bootstraps" the next pointer for context switch
 tcbType dummyTcb;
 
@@ -346,10 +361,6 @@ void OS_Kill(void){
 // OS_Sleep(0) implements cooperative multitasking
 void OS_Sleep(unsigned long sleepTime){
   //int32_t status; status = StartCritical();
-#if DEBUG
-  UART_OutString("TID: "); UART_OutUDec(RunPt->id); UART_OutString(" is going to sleep."); UART_OutCRLF();
-  UART_OutString("Switching to TID: "); UART_OutUDec(RunPt->next->id); UART_OutCRLF();
-#endif
   OS_DisableInterrupts();
   //check if sleeptime > 0 and not running single thread
   if(sleepTime > 0 && RunPt->next != RunPt){
@@ -404,7 +415,27 @@ unsigned long OS_Id(void){
 // In lab 3, there will be up to four background threads, and this priority field 
 //           determines the relative priority of these four threads
 
+int PeriodicTaskPeriod;
 void(*PeriodicTask)(void);
+
+#if DEBUG
+void PeriodicTaskWrapper() {
+  time21 = OS_Time();
+  TIMER3_ICR_R = TIMER_ICR_TATOCINT;// acknowledge TIMER3A timeout
+  (*PeriodicTask)();                // execute user task
+  unsigned long deltaT = OS_TimeDifference(time11, time21);
+  unsigned long jitter;
+  if(deltaT>PeriodicTaskPeriod)
+    jitter = (deltaT-PeriodicTaskPeriod+4)/8;  // in 0.1 usec
+  else
+    jitter = (PeriodicTaskPeriod-deltaT+4)/8;  // in 0.1 usec
+  if(jitter > MaxJitter1)
+    MaxJitter1 = jitter; // in usec
+  if(jitter >= JitterSize1)
+    jitter = JITTERSIZE-1;
+  JitterHistogram1[jitter]++;
+}
+#endif
 
 int OS_AddPeriodicThread(void(*task)(void),unsigned long period, unsigned long priority){
   SYSCTL_RCGCTIMER_R |= 0x08;   // 0) activate TIMER3
@@ -421,13 +452,20 @@ int OS_AddPeriodicThread(void(*task)(void),unsigned long period, unsigned long p
 // interrupts enabled in the main program after all devices initialized
 // vector number 51, interrupt number 35
   NVIC_EN1_R |= 1<<(35-32);      // 9) enable IRQ 35 in NVIC
+
+  PeriodicTaskPeriod = period;
+
   TIMER3_CTL_R = 0x00000001;    // 10) enable TIMER3A
 	return 0;
 }
 
 void Timer3A_Handler(void){
   TIMER3_ICR_R = TIMER_ICR_TATOCINT;// acknowledge TIMER3A timeout
+#if DEBUG
+  PeriodicTaskWrapper();
+#else
   (*PeriodicTask)();                // execute user task
+#endif
 }
 
 //******** OS_AddSW1Task *************** 
@@ -507,23 +545,24 @@ int OS_AddSW2Task(void(*task)(void), unsigned long priority){
 }
 
 void GPIOPortF_Handler(void){
-  GPIO_PORTF_ICR_R = 0x11;      // acknowledge flag4
-  int SW1pressed=0; int SW2pressed=0;
-  
-  int value = GPIO_PORTF_DATA_R; //check switch values
-  SW1pressed = (~value) & 0x10; //PF4
-  SW2pressed = (~value) & 0x01; //PF0
-  
-  if(SW1Task && SW1pressed)
-    //SW1Task();
-      OS_AddThread(&SW1TaskWrapper, 128 , SW1TaskPri);
-  
-  if(SW2Task && SW2pressed)
-    //SW2Task();
-      OS_AddThread(&SW2TaskWrapper, 128 , SW2TaskPri);
+    if(GPIO_PORTF_MIS_R & 0x10) {
+      GPIO_PORTF_ICR_R = 0x10;
+      if(SW1Task != NULL) {
+          SW1Task();
+          //2 trigger pendsv
+          NVIC_INT_CTRL_R |= 0x10000000;
+      }
+    }
+        //OS_AddThread(&SW1TaskWrapper, 128 , SW1TaskPri);
 
-  //2 trigger pendsv
-  NVIC_INT_CTRL_R |= 0x10000000;
+    if(GPIO_PORTF_MIS_R & 0x01) {
+      GPIO_PORTF_ICR_R = 0x01;
+      if(SW2Task != NULL) {
+          SW2Task();
+          //2 trigger pendsv
+          NVIC_INT_CTRL_R |= 0x10000000;
+      }
+    }
 }
 
 void OS_InitSemaphore(Sema4Type *semaPt, long value) {
@@ -662,18 +701,11 @@ void BlockThread(Sema4Type *sema) {
     } else
       sema->next = RunPt;
 
-    if(RunPt->bNext != NULL)
-        exit(1);
-
     RunPt->blocked = 1;
 
     //2 trigger pendsv
     NVIC_INT_CTRL_R |= 0x10000000;
     OS_EnableInterrupts();
-
-#if DEBUG
-    //UART_OutString("Thread "); UART_OutUDec(RunPt->id); UART_OutStringCRLF(" is now blocked.");
-#endif
 }
 
 void UnblockThread(Sema4Type *sema) {
@@ -689,10 +721,34 @@ void UnblockThread(Sema4Type *sema) {
     //2 trigger pendsv
     NVIC_INT_CTRL_R |= 0x10000000;
     OS_EnableInterrupts();
-
-#if DEBUG
-    if(t != NULL) {}
-        //UART_OutString("Thread "); UART_OutUDec(t->id); UART_OutStringCRLF(" is now unblocked.");
-#endif
 }
 
+void OS_bSignal(Sema4Type *semaPt) {
+    OS_DisableInterrupts();
+    tcbType *t = semaPt->next;
+    if(t != NULL) {
+        semaPt->next = semaPt->next->bNext;
+        t->bNext = NULL;
+        t->blocked = 0;
+    } else
+      semaPt->Value = 0;
+
+    //2 trigger pendsv
+    NVIC_INT_CTRL_R |= 0x10000000;
+    OS_EnableInterrupts();
+}
+
+void OS_Signal(Sema4Type *semaPt) {
+    OS_DisableInterrupts();
+    tcbType *t = semaPt->next;
+    if(t != NULL) {
+        semaPt->next = semaPt->next->bNext;
+        t->bNext = NULL;
+        t->blocked = 0;
+    } else
+      ++semaPt->Value;
+
+    //2 trigger pendsv
+    NVIC_INT_CTRL_R |= 0x10000000;
+    OS_EnableInterrupts();
+}
