@@ -97,7 +97,7 @@ tcbType *runTail = 0;
 volatile uint32_t CountTimeSlice = 0; // increments every systick
 volatile uint32_t sysTime = 0;
 
-#define OS_FIFOSIZE    128         // size of the FIFOs (must be power of 2)
+#define OS_FIFOSIZE    4         // size of the FIFOs (must be power of 2)
 #define OS_FIFOSUCCESS 1        // return value on success
 #define OS_FIFOFAIL    0         // return value on failure
 static Sema4Type fifoEmpty;
@@ -427,6 +427,7 @@ unsigned long OS_Id(void){
 
 int PeriodicTaskPeriod;
 void(*PeriodicTask)(void);
+void(*PeriodicTask2)(void);
 
 #if DEBUG
 void PeriodicTaskWrapper() {
@@ -447,7 +448,39 @@ void PeriodicTaskWrapper() {
 }
 #endif
 
+void Timer3_Init(unsigned long period, unsigned long priority){
+  SYSCTL_RCGCTIMER_R |= 0x08;   // 0) activate TIMER3
+  volatile int delay = SYSCTL_RCGCTIMER_R;
+  TIMER3_CTL_R = 0x00000000;    // 1) disable TIMER3A during setup
+  TIMER3_CFG_R = 0x00000000;    // 2) configure for 32-bit mode
+  TIMER3_TAMR_R = 0x00000002;   // 3) configure for periodic mode, default down-count settings
+  TIMER3_TAILR_R = period-1;    // 4) reload value
+  TIMER3_TAPR_R = 0;            // 5) bus clock resolution
+  TIMER3_ICR_R = 0x00000001;    // 6) clear TIMER3A timeout flag
+  TIMER3_IMR_R = 0x00000001;    // 7) arm timeout interrupt
+	NVIC_PRI8_R = (NVIC_PRI8_R&0x00FFFFFF)|(priority<<29); // 0x80000000/4 = 2^29
+// interrupts enabled in the main program after all devices initialized
+// vector number 51, interrupt number 35
+  NVIC_EN1_R |= 1<<(35-32);      // 9) enable IRQ 35 in NVIC
+}
+
+void Timer5_Init(unsigned long period, unsigned long priority){
+  SYSCTL_RCGCTIMER_R |= 0x20;   // 0) activate TIMER5
+  volatile int delay = SYSCTL_RCGCTIMER_R;
+  TIMER5_CTL_R = 0x00000000;    // 1) disable TIMER4A during setup
+  TIMER5_CFG_R = 0x00000000;    // 2) configure for 32-bit mode
+  TIMER5_TAMR_R = 0x00000002;   // 3) configure for periodic mode, default down-count settings
+  TIMER5_TAILR_R = period-1;    // 4) reload value
+  TIMER5_TAPR_R = 0;            // 5) bus clock resolution
+  TIMER5_ICR_R = 0x00000001;    // 6) clear TIMER4 timeout flag
+  TIMER5_IMR_R = 0x00000001;    // 7) arm timeout interrupt
+	NVIC_PRI23_R = (NVIC_PRI23_R&0xFFFFFF00)|(priority<<5); //23 = 92/4, 5 = (92%4)*8+5
+// interrupts enabled in the main program after all devices initialized
+  NVIC_EN2_R |= 1<<(92%32);      // 9) enable IRQ 108/92 in NVIC; 2 = 92/32 = 2, 2*32 = 64; 70 = 86 - 16
+}
+
 int OS_AddPeriodicThread(void(*task)(void),unsigned long period, unsigned long priority){
+/*
   SYSCTL_RCGCTIMER_R |= 0x08;   // 0) activate TIMER3
   PeriodicTask = task;          // user function
   TIMER3_CTL_R = 0x00000000;    // 1) disable TIMER3A during setup
@@ -467,6 +500,22 @@ int OS_AddPeriodicThread(void(*task)(void),unsigned long period, unsigned long p
 
   TIMER3_CTL_R = 0x00000001;    // 10) enable TIMER3A
 	return 0;
+*/
+  if(PeriodicTask == 0){
+    PeriodicTask = task;          // user function
+    Timer3_Init(period, priority);
+    PeriodicTaskPeriod = period;
+    TIMER3_CTL_R = 0x00000001;    // 10) enable TIMER3A
+    return 0;
+  } else if(PeriodicTask2 == 0){
+    PeriodicTask2 = task;
+    Timer5_Init(period, priority);
+    //PeriodicTaskPeriod = period;
+    TIMER5_CTL_R = 0x00000001;    // 10) enable TIMER3A
+    return 0;
+  } else {
+    return 1;
+  }
 }
 
 void Timer3A_Handler(void){
@@ -477,6 +526,16 @@ void Timer3A_Handler(void){
   (*PeriodicTask)();                // execute user task
 #endif
 }
+
+void Timer5A_Handler(void){
+  TIMER5_ICR_R = TIMER_ICR_TATOCINT;// acknowledge TIMER5A timeout
+// #if DEBUG
+//  PeriodicTaskWrapper();
+// #else
+  (*PeriodicTask2)();                // execute user task
+// #endif
+}
+
 
 //******** OS_AddSW1Task *************** 
 // add a background task to run whenever the SW1 (PF4) button is pushed
