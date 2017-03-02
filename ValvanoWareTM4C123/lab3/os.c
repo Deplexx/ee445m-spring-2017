@@ -24,6 +24,7 @@
 
 #include <stdbool.h>
 #include <stdint.h>
+#include <stdio.h>
 #include <stdlib.h>
 
 #include "../inc/tm4c123gh6pm.h"
@@ -81,6 +82,8 @@ unsigned long const JitterSize2=JITTERSIZE;
 unsigned long JitterHistogram2[JITTERSIZE]={0,};
 #endif
 
+Sema4Type jitterLock;
+
 //"bootstraps" the next pointer for context switch
 tcbType dummyTcb;
 
@@ -107,13 +110,14 @@ static Sema4Type mailRecv;
 static Sema4Type mailLock;
 static unsigned long Mail;
 
+static void Jitter_Init(void);
+
 static void PortB_Init(void);
 
 static void SW1TaskWrapper(void);
 static void SW2TaskWrapper(void);
 
 void BlockThread(Sema4Type *sema);
-void UnblockThread(Sema4Type *sema);
 
 void InitAllTCBs(void){
   for(int k=0; k<MAXTHREADS; k++){
@@ -177,6 +181,7 @@ void OS_Init(void){
   
   //LED_Init();
   UART_Init();
+  Jitter_Init();
   
   //Initialize PORTF for LEDs and Switches
   SYSCTL_RCGCGPIO_R |= 0x00000020;  // 1) activate clock for Port F
@@ -742,4 +747,22 @@ void OS_Signal(Sema4Type *semaPt) {
     //2 trigger pendsv
     NVIC_INT_CTRL_R |= 0x10000000;
     OS_EnableInterrupts();
+}
+
+void Jitter_Init(void) {
+    OS_InitSemaphore(&jitterLock, 0);
+}
+
+void Jitter(void) {
+    OS_Wait(&jitterLock);
+    UART_OutStringCRLF("Periodic thread 1 jitter data:");
+    UART_OutString("Max jitter: "); UART_OutUDec(MaxJitter1 / 80); UART_OutString(" us"); UART_OutCRLF();
+    UART_OutStringCRLF("Jitter distribution: ");
+    for(int i = 0; i < JITTERSIZE; ++i) {
+        UART_OutString("i="); UART_OutUDec(i); UART_OutString(": ");
+        for(int j = 0; j < JitterHistogram1[i] >> 2; ++j)
+          UART_OutChar('=');
+        UART_OutChar(' '); UART_OutUDec(JitterHistogram1[i]); UART_OutCRLF();
+    }
+    OS_Signal(&jitterLock);
 }

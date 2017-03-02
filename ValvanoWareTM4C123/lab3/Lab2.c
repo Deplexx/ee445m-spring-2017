@@ -31,6 +31,7 @@
 #include "ADC.h"
 #include "os.h"
 #include "ST7735.h"
+#include "UART.h"
 #include "uart_interp.h"
 
 #define Lab2 1
@@ -321,7 +322,7 @@ unsigned long myId = OS_Id();
 //--------------end of Task 5-----------------------------
 
 //*******************final user main DEMONTRATE THIS TO TA**********
-int main(void){
+int main5(void){
   OS_Init();           // initialize, disable interrupts
   PortE_Init();
   ST7735_InitR(INITR_REDTAB);
@@ -364,7 +365,7 @@ int main(void){
 // no ADC serial port or LCD output
 // no calls to semaphores
 
-/*
+
 unsigned long Count1;   // number of times thread1 loops
 unsigned long Count2;   // number of times thread2 loops
 unsigned long Count3;   // number of times thread3 loops
@@ -437,7 +438,7 @@ void Thread3b(void){
     Count3++;
   }
 }
-int main(void){  // Testmain2
+int main2(void){  // Testmain2
   OS_Init();           // initialize, disable interrupts
   PortE_Init();       // profile user threads
   NumCreated = 0 ;
@@ -654,7 +655,7 @@ void Thread6(void){  // foreground thread
 extern void Jitter(void);   // prints jitter information (write this)
 void Thread7(void){  // foreground thread
   UART_OutString("\n\rEE345M/EE380L, Lab 3 Preparation 2\n\r");
-  OS_Sleep(5000);   // 10 seconds        
+  OS_Sleep(50);   // 10 seconds
   Jitter();         // print jitter information
   UART_OutString("\n\r\n\r");
   OS_Kill();
@@ -675,7 +676,7 @@ void TaskB(void){       // called every pB in background
   PE2 = 0x00;      // debugging profile  
 }
 
-int Testmain5(void){       // Testmain5 Lab 3
+int main(void){       // Testmain5 Lab 3
   PortE_Init();
   OS_Init();           // initialize, disable interrupts
   NumCreated = 0 ;
@@ -812,4 +813,3 @@ int Testmain7(void){       // Testmain7
   OS_Launch(TIME_1MS/10); // 100us, doesn't return, interrupts enabled in here
   return 0;             // this never executes
 }
-*/

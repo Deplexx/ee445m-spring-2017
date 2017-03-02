@@ -302,6 +302,8 @@ unsigned long OS_MsTime(void);
 // Outputs: none (does not return)
 void OS_Launch(uint32_t theTimeSlice);
 
+void Jitter(void);
+
 #endif
 
 
