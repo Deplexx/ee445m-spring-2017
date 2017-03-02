@@ -94,7 +94,7 @@ tcbType *runTail = 0;
 volatile uint32_t CountTimeSlice = 0; // increments every systick
 volatile uint32_t sysTime = 0;
 
-#define OS_FIFOSIZE   128         // size of the FIFOs (must be power of 2)
+#define OS_FIFOSIZE    128         // size of the FIFOs (must be power of 2)
 #define OS_FIFOSUCCESS 1        // return value on success
 #define OS_FIFOFAIL    0         // return value on failure
 static Sema4Type fifoEmpty;
@@ -107,7 +107,7 @@ static Sema4Type mailRecv;
 static Sema4Type mailLock;
 static unsigned long Mail;
 
-static void Port_BInit(void);
+static void PortB_Init(void);
 
 static void SW1TaskWrapper(void);
 static void SW2TaskWrapper(void);
@@ -153,9 +153,14 @@ void OS_InitSysTimer(void){
   //TIMER4_CTL_R = 0x00000001;    // 10) enable TIMER3A
 }
 
-static void Port_BInit(void) {
-    SysCtlPeripheralEnable(SYSCTL_PERIPH_GPIOB);    // enable port B
-    GPIOPinTypeGPIOOutput(GPIO_PORTB_BASE, GPIO_PIN_0|GPIO_PIN_1|GPIO_PIN_2); // enable outputs on the launchpad LED pins
+static void PortB_Init(void) {
+  SYSCTL_RCGCGPIO_R |= 0x02;       // activate port B
+  volatile int delay = SYSCTL_RCGCGPIO_R;
+  GPIO_PORTB_DIR_R |= 0x0F;    // make PB3-0 output heartbeats
+  GPIO_PORTB_AFSEL_R &= ~0x0F;   // disable alt funct on PB3-0
+  GPIO_PORTB_DEN_R |= 0x0F;     // enable digital I/O on PB3-0
+  GPIO_PORTB_PCTL_R = GPIO_PORTB_PCTL_R & ~0x0000FFFF;
+  GPIO_PORTB_AMSEL_R &= ~0x0F;;      // disable analog functionality on PB
 }
 
 // ******** OS_Init ************
@@ -180,7 +185,7 @@ void OS_Init(void){
   GPIO_PORTF_CR_R = 0x1F;           // allow changes to PF4-0
   // only PF0 needs to be unlocked, other bits can't be locked
   GPIO_PORTF_AMSEL_R &= (~0x1F);    // 3) disable analog on PF4-0
-  GPIO_PORTF_PCTL_R = 0x00000000;   // 4) PCTL GPIO on PF4-0
+  GPIO_PORTF_PCTL_R = GPIO_PORTF_PCTL_R & ~0x000FFFFF;   // 4) PCTL GPIO on PF4-0
   GPIO_PORTF_DIR_R |= 0x0E;         // 5) PF4,PF0 in, PF3-1 out
   GPIO_PORTF_DIR_R &= (~0x11);
   GPIO_PORTF_AFSEL_R &= (~0x1F);    // 6) disable alt funct on PF4-0
@@ -188,7 +193,7 @@ void OS_Init(void){
   GPIO_PORTF_DEN_R |= 0x1F;         // 7) enable digital I/O on PF4-0
   
 #if DEBUG
-  Port_BInit();
+  PortB_Init();
 #endif
 
   //configure switch interrupts
@@ -483,7 +488,7 @@ void Timer3A_Handler(void){
 //           determines the relative priority of these four threads
 
 void(*SW1Task)(void) = 0;
-int32_t SW1TaskPri = -1;
+long SW1TaskPri;
 
 static void SW1TaskWrapper(void) {
     if(SW1Task != NULL)
@@ -499,7 +504,7 @@ int OS_AddSW1Task(void(*task)(void), unsigned long priority){
     return 0;
   }else{
     SW1Task = task;
-    SW1TaskPri = priority + SWPRI;
+    SW1TaskPri = (signed long)(priority) + SWPRI;
     NVIC_EN0_R |= 0x40000000; //enable interrupt 30 in NVIC for PortF
     EndCritical(status);
     return 1;
@@ -521,7 +526,7 @@ int OS_AddSW1Task(void(*task)(void), unsigned long priority){
 //           determines the relative priority of these four threads
 
 void(*SW2Task)(void) = 0;
-int32_t SW2TaskPri = -1;
+long SW2TaskPri;
 
 static void SW2TaskWrapper(void) {
     if(SW2Task != NULL)
@@ -537,7 +542,7 @@ int OS_AddSW2Task(void(*task)(void), unsigned long priority){
     return 0;
   }else{
     SW2Task = task;
-    SW2TaskPri = priority + SWPRI;
+    SW2TaskPri = (signed long)(priority) + SWPRI;
     NVIC_EN0_R |= 0x40000000; //enable interrupt 30 in NVIC for PortF
     EndCritical(status);
     return 1;
@@ -694,29 +699,15 @@ void BlockThread(Sema4Type *sema) {
     OS_DisableInterrupts();
 
     tcbType *t = sema->next;
-    if(t != NULL) {
-        while(t->bNext != NULL)
-            t = t->bNext;
-        t->bNext = RunPt;
+    if(t) {
+      while(t->bNext)
+        t = t->bNext;
+      t->bNext = RunPt;
     } else
       sema->next = RunPt;
 
     RunPt->blocked = 1;
-
-    //2 trigger pendsv
-    NVIC_INT_CTRL_R |= 0x10000000;
-    OS_EnableInterrupts();
-}
-
-void UnblockThread(Sema4Type *sema) {
-    OS_DisableInterrupts();
-
-    tcbType *t = sema->next;
-    if(t != NULL) {
-        sema->next = sema->next->bNext;
-        t->bNext = NULL;
-        t->blocked = 0;
-    }
+    RunPt->bNext = 0;
 
     //2 trigger pendsv
     NVIC_INT_CTRL_R |= 0x10000000;

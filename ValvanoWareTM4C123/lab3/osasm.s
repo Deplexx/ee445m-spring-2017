@@ -34,37 +34,35 @@
         EXPORT  StartOS
         EXPORT  SysTick_Handler
 		EXPORT  PendSV_Handler
-		EXPORT  OS_Signal
 		EXPORT  OS_Wait
-		EXPORT  OS_bSignal
 		EXPORT  OS_bWait
 		
-		EXTERN  CountTimeSlice
-
+		EXTERN  BlockThread
+		
+		    ALIGN
+PF1    EQU     0x40025008
+PF2    EQU     0x40025010
 
 OS_DisableInterrupts
         CPSID   I
         BX      LR
 
-
 OS_EnableInterrupts
         CPSIE   I
         BX      LR
 
-
 SysTick_Handler                ; 1) Saves R0-R3,R12,LR,PC,PSR
     CPSID   I                  ; 2) Prevent interrupt during switch
 	LDR     R0, =PF1           ; toggle heartbeat
-	LDR     R0, [R0]
 	LDR     R1, [R0]
 	EOR     R1, #0x02
 	STR     R1, [R0]
 	EOR     R1, #0x02
 	STR     R1, [R0]
-	LDR     R0, =CountTimeSlice  ;increment timer
-	LDR     R1, [R0]
-	ADD     R1, R1, #1
-	STR     R1, [R0]
+;	LDR     R0, =CountTimeSlice  ;increment timer
+;	LDR     R1, [R0]
+;	ADD     R1, R1, #1
+;	STR     R1, [R0]
     PUSH    {R4-R11}           ; 3) Save remaining regs r4-11
 	MOV     R0, #0xD000D000
     PUSH    {R0}
@@ -72,18 +70,18 @@ SysTick_Handler                ; 1) Saves R0-R3,R12,LR,PC,PSR
     LDR     R0, =RunPt         ; 4) R0=pointer to RunPt, old thread
     LDR     R1, [R0]           ;    R1 = RunPt
     STR     SP, [R1]           ; 5) Save SP into TCB
-	
 SysTick_Next_Thread
     LDR     R1, [R1,#4]        ; 6) R1 = RunPt->next
     LDR     R2, [R1,#16]       ; RunPt->next->sleep
     CMP     R2, #0
     BNE     SysTick_Next_Thread
-	
+	LDR     R2, [R1, #28]      ; RunPt->next->blocked
+	CMP     R2, #0             ; is thread blocked?
+	BNE     SysTick_Next_Thread
     STR     R1, [R0]           ;    RunPt = R1
     LDR     SP, [R1]           ; 7) new thread SP; SP = RunPt->sp;
     POP     {R4-R11}           ; 8) restore regs r4-11
 	LDR     R0, =PF1           ; toggle heartbeat
-	LDR     R0, [R0]
 	LDR     R1, [R0]
 	EOR     R1, #0x02
 	STR     R1, [R0]
@@ -93,7 +91,6 @@ SysTick_Next_Thread
 PendSV_Handler                ; 1) Saves R0-R3,R12,LR,PC,PSR
     CPSID   I                  ; 2) Prevent interrupt during switch
 	LDR     R0, =PF2
-	LDR     R0, [R0]
 	LDR     R1, [R0]
 	EOR     R1, #0x04
 	STR     R1, [R0]
@@ -106,29 +103,24 @@ PendSV_Handler                ; 1) Saves R0-R3,R12,LR,PC,PSR
     LDR     R0, =RunPt         ; 4) R0=pointer to RunPt, old thread
     LDR     R1, [R0]           ;    R1 = RunPt
     STR     SP, [R1]           ; 5) Save SP into TCB
-	
 PendSV_Next_Thread
     LDR     R1, [R1,#4]        ; 6) R1 = RunPt->next
-
     LDR     R2, [R1,#16]       ; RunPt->next->sleep
     CMP     R2, #0
     BNE     PendSV_Next_Thread
-	
+	LDR     R2, [R1, #28]      ; RunPt->next->blocked
+	CMP     R2, #0             ; is thread blocked?
+	BNE     PendSV_Next_Thread
     STR     R1, [R0]           ;    RunPt = R1
     LDR     SP, [R1]           ; 7) new thread SP; SP = RunPt->sp;
     POP     {R4-R11}           ; 8) restore regs r4-11
 	LDR     R0, =PF2
-	LDR     R0, [R0]
 	LDR     R1, [R0]
 	EOR     R1, #0x04
 	STR     R1, [R0]
     CPSIE   I                  ; 9) tasks run with interrupts enabled
     BX      LR                 ; 10) restore R0-R3,R12,LR,PC,PSR
 	
-    ALIGN
-PF1    DCD     0x40025008
-PF2    DCD     0x40025010
-
 StartOS
     LDR     R0, =RunPt         ; currently running thread
     LDR     R2, [R0]           ; R2 = value of RunPt
@@ -142,48 +134,35 @@ StartOS
     CPSIE   I                  ; Enable interrupts at processor level
     BX      LR                 ; start first thread
 	
-; void OS_Wait(Sema4Type *semaPt)
-OS_Wait_store_back
-    STREX R2, R1, [R0]
+   ; void OS_Wait(Sema4Type *semaPt)
 OS_Wait
-    LDREX R1, [R0]
+    LDREX R1, [R0] ; R0 = &sema
     CMP R1, #0
-    BLT OS_Wait_store_back
+    BLT OS_Wait_Block
     ADD R1, R1, #-1
     STREX R2, R1, [R0]
     CMP R2, #0
     BNE OS_Wait
+    DMB
     BX LR
 
 ; void OS_bWait(Sema4Type *semaPt)
-OS_bWait_store_back
-    STREX R2, R1, [R0]
 OS_bWait
     LDREX R1, [R0]
     CMP R1, #0
-    BNE OS_bWait_store_back
+    BNE OS_Wait_Block
     MOV R1, #-1
     STREX R2, R1, [R0]
     CMP R2, #0
     BNE OS_bWait
+    DMB
     BX LR
 
-; void OS_bSignal(Sema4Type *semaPt)
-OS_Signal
-    LDREX R1, [R0]
-    ADD R1, R1, #1
-    STREX R2, R1, [R0]
-    CMP R2, #0
-    BNE OS_Signal
-    BX LR
-
-; void OS_bSignal(Sema4Type *semaPt)
-OS_bSignal
-    LDREX R1, [R0]
-    MOV R1, #0
-    STREX R2, R1, [R0]
-    CMP R2, #0
-    BNE OS_bSignal
+OS_Wait_Block
+    PUSH  {LR}
+    BL BlockThread
+    POP   {LR}
+    DMB
     BX LR
 
     ALIGN
