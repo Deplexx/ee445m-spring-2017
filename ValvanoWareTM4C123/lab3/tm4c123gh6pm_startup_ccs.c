@@ -559,7 +559,7 @@ void PWM1Fault_Handler(void){ while(1){}}          // PWM 1 Fault
 // disable interrupts
 // inputs:  none
 // outputs: none
-void DisableInterrupts(void){
+void UNUSEDDisableInterrupts(void){
 	__asm ("    CPSID  I\n");
 }
 
@@ -567,14 +567,14 @@ void DisableInterrupts(void){
 // emable interrupts
 // inputs:  none
 // outputs: none
-void EnableInterrupts(void){
+void UNUSEDEnableInterrupts(void){
 	__asm  ("    CPSIE  I\n");
 }
 //*********** StartCritical ************************
 // make a copy of previous I bit, disable interrupts
 // inputs:  none
 // outputs: previous I bit
-void StartCritical(void){
+void UNUSEDStartCritical(void){
  __asm  ("    MRS    R0, PRIMASK  ; save old status \n"
          "    CPSID  I         	  ; mask all (except faults)\n");
 }
@@ -583,7 +583,7 @@ void StartCritical(void){
 // using the copy of previous I bit, restore I bit to previous value
 // inputs:  previous I bit
 // outputs: none
-void EndCritical(void){
+void UNUSEDEndCritical(void){
 	__asm  ("    MSR    PRIMASK, R0\n");
 }
 

@@ -304,6 +304,11 @@ void OS_Launch(uint32_t theTimeSlice);
 
 void Jitter(void);
 
+void OS_DisableInterrupts(void);
+void OS_EnableInterrupts(void);
+long StartCritical(void);
+void EndCritical(long res);
+
 #endif
 
 

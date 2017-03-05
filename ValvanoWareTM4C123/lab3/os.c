@@ -51,10 +51,10 @@
 #define DEBUG 1
 
 // function definitions in osasm.s
-void OS_DisableInterrupts(void); // Disable interrupts
-void OS_EnableInterrupts(void);  // Enable interrupts
-long StartCritical(void);
-void EndCritical(long sr);
+void DisableInterrupts(void); // Disable interrupts
+void EnableInterrupts(void);  // Enable interrupts
+long StartCriticalAsm(void);
+void EndCriticalAsm(long sr);
 void StartOS(void);
 
 #define MAXTHREADS  20        // maximum number of threads
@@ -80,9 +80,18 @@ unsigned long time22 = 0;         // time at current ADC sample
 long MaxJitter2;             // largest time jitter between interrupts in usec
 unsigned long const JitterSize2=JITTERSIZE;
 unsigned long JitterHistogram2[JITTERSIZE]={0,};
-#endif
 
 Sema4Type jitterLock;
+#endif
+
+#if DEBUG
+static int IntsEnabled = 0;
+static int MasterTime = 0;
+static int TmpTimeIntsDisabled;
+static int MaxTimeIntsDisabled = 0;
+static int TimeIntsDisabled = 0;
+static int PercentIntsDisabled = 0;
+#endif
 
 //"bootstraps" the next pointer for context switch
 tcbType dummyTcb;
@@ -109,6 +118,8 @@ static Sema4Type mailPost;
 static Sema4Type mailRecv;
 static Sema4Type mailLock;
 static unsigned long Mail;
+
+static unsigned long GetMasterTime(void);
 
 static void Jitter_Init(void);
 
@@ -387,7 +398,7 @@ void OS_Sleep(unsigned long sleepTime){
 void Timer4A_Handler(void){
   TIMER4_ICR_R = TIMER_ICR_TATOCINT; //acknowledge interrupt
   int32_t status; status = StartCritical();
-  sysTime++;
+  sysTime++; MasterTime++;
   
   tcbType *t;
   for(t = RunPt;
@@ -425,26 +436,50 @@ unsigned long OS_Id(void){
 // In lab 3, there will be up to four background threads, and this priority field 
 //           determines the relative priority of these four threads
 
-int PeriodicTaskPeriod;
-void(*PeriodicTask)(void);
+int PeriodicTaskPeriod1;
+int PeriodicTaskPeriod2;
+void(*PeriodicTask1)(void);
 void(*PeriodicTask2)(void);
 
 #if DEBUG
-void PeriodicTaskWrapper() {
+void PeriodicTaskWrapper1() {
   time21 = OS_Time();
-  TIMER3_ICR_R = TIMER_ICR_TATOCINT;// acknowledge TIMER3A timeout
-  (*PeriodicTask)();                // execute user task
-  unsigned long deltaT = OS_TimeDifference(time11, time21);
-  unsigned long jitter;
-  if(deltaT>PeriodicTaskPeriod)
-    jitter = (deltaT-PeriodicTaskPeriod+4)/8;  // in 0.1 usec
-  else
-    jitter = (PeriodicTaskPeriod-deltaT+4)/8;  // in 0.1 usec
-  if(jitter > MaxJitter1)
-    MaxJitter1 = jitter; // in usec
-  if(jitter >= JitterSize1)
-    jitter = JITTERSIZE-1;
-  JitterHistogram1[jitter]++;
+  (*PeriodicTask1)();                // execute user task
+  if(time11 != 0) {
+      unsigned long deltaT = OS_TimeDifference(time11, time21);
+      unsigned long jitter;
+
+      if(deltaT>PeriodicTaskPeriod1)
+        jitter = (deltaT-PeriodicTaskPeriod1+4)/8;  // in 0.1 usec
+      else
+        jitter = (PeriodicTaskPeriod1-deltaT+4)/8;  // in 0.1 usec
+      if(jitter > MaxJitter1)
+        MaxJitter1 = jitter; // in usec
+      if(jitter >= JitterSize1)
+        jitter = JITTERSIZE-1;
+      JitterHistogram1[jitter]++;
+  }
+  time11 = time21;
+}
+
+void PeriodicTaskWrapper2() {
+  time22 = OS_Time();
+  (*PeriodicTask2)();                // execute user task
+  if(time12 != 0) {
+      unsigned long deltaT = OS_TimeDifference(time12, time22);
+      unsigned long jitter;
+
+      if(deltaT>PeriodicTaskPeriod2)
+        jitter = (deltaT-PeriodicTaskPeriod2+4)/8;  // in 0.1 usec
+      else
+        jitter = (PeriodicTaskPeriod2-deltaT+4)/8;  // in 0.1 usec
+      if(jitter > MaxJitter2)
+        MaxJitter2 = jitter; // in usec
+      if(jitter >= JitterSize2)
+        jitter = JITTERSIZE-1;
+      JitterHistogram2[jitter]++;
+  }
+  time12 = time22;
 }
 #endif
 
@@ -501,16 +536,16 @@ int OS_AddPeriodicThread(void(*task)(void),unsigned long period, unsigned long p
   TIMER3_CTL_R = 0x00000001;    // 10) enable TIMER3A
 	return 0;
 */
-  if(PeriodicTask == 0){
-    PeriodicTask = task;          // user function
+  if(PeriodicTask1 == 0){
+    PeriodicTask1 = task;          // user function
     Timer3_Init(period, priority);
-    PeriodicTaskPeriod = period;
+    PeriodicTaskPeriod1 = period;
     TIMER3_CTL_R = 0x00000001;    // 10) enable TIMER3A
     return 0;
   } else if(PeriodicTask2 == 0){
     PeriodicTask2 = task;
     Timer5_Init(period, priority);
-    //PeriodicTaskPeriod = period;
+    PeriodicTaskPeriod2 = period;
     TIMER5_CTL_R = 0x00000001;    // 10) enable TIMER3A
     return 0;
   } else {
@@ -521,19 +556,19 @@ int OS_AddPeriodicThread(void(*task)(void),unsigned long period, unsigned long p
 void Timer3A_Handler(void){
   TIMER3_ICR_R = TIMER_ICR_TATOCINT;// acknowledge TIMER3A timeout
 #if DEBUG
-  PeriodicTaskWrapper();
+  PeriodicTaskWrapper1();
 #else
-  (*PeriodicTask)();                // execute user task
+  (*PeriodicTask1)();                // execute user task
 #endif
 }
 
 void Timer5A_Handler(void){
   TIMER5_ICR_R = TIMER_ICR_TATOCINT;// acknowledge TIMER5A timeout
-// #if DEBUG
-//  PeriodicTaskWrapper();
-// #else
+#if DEBUG
+  PeriodicTaskWrapper2();
+#else
   (*PeriodicTask2)();                // execute user task
-// #endif
+#endif
 }
 
 
@@ -724,6 +759,10 @@ unsigned long OS_Time(void){
   return value;
 }
 
+static unsigned long GetMasterTime(void) {
+    return TIMER4_TAILR_R - TIMER4_TAV_R + sysTime*TIME_1MS;
+}
+
 // ******** OS_TimeDifference ************
 // Calculates difference between two times
 // Inputs:  two times measured with OS_Time
@@ -813,9 +852,9 @@ void Jitter_Init(void) {
 }
 
 void Jitter(void) {
-    OS_Wait(&jitterLock);
+    OS_bWait(&jitterLock);
     UART_OutStringCRLF("Periodic thread 1 jitter data:");
-    UART_OutString("Max jitter: "); UART_OutUDec(MaxJitter1 / 80); UART_OutString(" us"); UART_OutCRLF();
+    UART_OutString("Max jitter: "); UART_OutUDec(MaxJitter1); UART_OutString(" x 0.1 us"); UART_OutCRLF();
     UART_OutStringCRLF("Jitter distribution: ");
     for(int i = 0; i < JITTERSIZE; ++i) {
         UART_OutString("i="); UART_OutUDec(i); UART_OutString(": ");
@@ -823,5 +862,62 @@ void Jitter(void) {
           UART_OutChar('=');
         UART_OutChar(' '); UART_OutUDec(JitterHistogram1[i]); UART_OutCRLF();
     }
-    OS_Signal(&jitterLock);
+
+    UART_OutStringCRLF("Periodic thread 2 jitter data:");
+    UART_OutString("Max jitter: "); UART_OutUDec(MaxJitter2); UART_OutString(" x 0.1 us"); UART_OutCRLF();
+    UART_OutStringCRLF("Jitter distribution: ");
+    for(int i = 0; i < JITTERSIZE; ++i) {
+        UART_OutString("i="); UART_OutUDec(i); UART_OutString(": ");
+        for(int j = 0; j < JitterHistogram2[i] >> 2; ++j)
+          UART_OutChar('=');
+        UART_OutChar(' '); UART_OutUDec(JitterHistogram2[i]); UART_OutCRLF();
+    }
+    OS_bSignal(&jitterLock);
+}
+
+void OS_DisableInterrupts(void) {
+#if DEBUG
+    if(IntsEnabled) {
+        TmpTimeIntsDisabled = GetMasterTime();
+        IntsEnabled = 0;
+    }
+#endif
+    DisableInterrupts();
+}
+
+void OS_EnableInterrupts(void) {
+    EnableInterrupts();
+#if DEBUG
+    unsigned long tmp = GetMasterTime();
+    unsigned long t = OS_TimeDifference(TmpTimeIntsDisabled, tmp);
+    TimeIntsDisabled += t;
+    if(t > MaxTimeIntsDisabled)
+        MaxTimeIntsDisabled = t;
+    PercentIntsDisabled = (TimeIntsDisabled * 100) / MasterTime;
+    IntsEnabled = 1;
+#endif
+}
+
+long StartCritical(void) {
+#if DEBUG
+    if(IntsEnabled) {
+        TmpTimeIntsDisabled = GetMasterTime();
+        IntsEnabled = 0;
+    }
+#endif
+    return StartCriticalAsm();
+}
+
+void EndCritical(long sav) {
+    EndCriticalAsm(sav);
+#if DEBUG
+    unsigned long tmp = GetMasterTime();
+    unsigned long t = OS_TimeDifference(TmpTimeIntsDisabled, tmp);
+    TimeIntsDisabled += t;
+    if(t > MaxTimeIntsDisabled)
+        MaxTimeIntsDisabled = t;
+    PercentIntsDisabled = (TimeIntsDisabled * 100) / MasterTime;
+    if(sav != 0)
+        IntsEnabled = 1;
+#endif
 }

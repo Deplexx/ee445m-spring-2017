@@ -322,7 +322,7 @@ unsigned long myId = OS_Id();
 //--------------end of Task 5-----------------------------
 
 //*******************final user main DEMONTRATE THIS TO TA**********
-int main5(void){
+int realmain(void){
   OS_Init();           // initialize, disable interrupts
   PortE_Init();
   ST7735_InitR(INITR_REDTAB);
@@ -655,7 +655,7 @@ void Thread6(void){  // foreground thread
 extern void Jitter(void);   // prints jitter information (write this)
 void Thread7(void){  // foreground thread
   UART_OutString("\n\rEE345M/EE380L, Lab 3 Preparation 2\n\r");
-  OS_Sleep(50);   // 10 seconds
+  OS_Sleep(5000);   // 10 seconds
   Jitter();         // print jitter information
   UART_OutString("\n\r\n\r");
   OS_Kill();
@@ -682,7 +682,7 @@ int main(void){       // Testmain5 Lab 3
   NumCreated = 0 ;
   NumCreated += OS_AddThread(&Thread6,128,2); 
   NumCreated += OS_AddThread(&Thread7,128,1); 
-  OS_AddPeriodicThread(&TaskA,TIME_1MS,0);           // 1 ms, higher priority
+  OS_AddPeriodicThread(&TaskA,2*TIME_1MS + TIME_1MS / 2,0);           // 1 ms, higher priority
   OS_AddPeriodicThread(&TaskB,2*TIME_1MS,1);         // 2 ms, lower priority
  
   OS_Launch(TIME_2MS); // 2ms, doesn't return, interrupts enabled in here
