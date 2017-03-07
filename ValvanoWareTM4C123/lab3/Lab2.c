@@ -34,8 +34,8 @@
 #include "UART.h"
 #include "uart_interp.h"
 
-#define Lab2 1
-#define Lab3 0
+#define Lab2 0
+#define Lab3 1
 //*********Prototype for FFT in cr4_fft_64_stm32.s, STMicroelectronics
 void cr4_fft_64_stm32(void *pssOUT, void *pssIN, unsigned short Nbin);
 //*********Prototype for PID in PID_stm32.s, STMicroelectronics
@@ -322,7 +322,7 @@ unsigned long myId = OS_Id();
 //--------------end of Task 5-----------------------------
 
 //*******************final user main DEMONTRATE THIS TO TA**********
-int realmain(void){
+int main(void){
   OS_Init();           // initialize, disable interrupts
   PortE_Init();
   ST7735_InitR(INITR_REDTAB);
@@ -676,7 +676,7 @@ void TaskB(void){       // called every pB in background
   PE2 = 0x00;      // debugging profile  
 }
 
-int main(void){       // Testmain5 Lab 3
+int Testmain5(void){       // Testmain5 Lab 3
   PortE_Init();
   OS_Init();           // initialize, disable interrupts
   NumCreated = 0 ;

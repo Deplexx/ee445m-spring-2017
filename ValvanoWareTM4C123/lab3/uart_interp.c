@@ -148,19 +148,24 @@ static void adc_runComm(const char *comm) {
 }
 
 static void os_runComm(const char *comm) {
-//    char *currTok = strtok(comm, " \t");
-//
-//    if(strcmp((const char*) currTok, "on") == 0)
-//      OS_On();
-//    else if(strcmp((const char*) currTok, "count") == 0) {
-//      UART_OutString("OS task count: "); UART_OutUDec(OS_ReadPeriodicTime()); UART_OutCRLF();
-//    }
-//    else if(strcmp((const char*) currTok, "clear") == 0) {
-//      UART_OutStringCRLF("Clearing os count...");
-//      OS_ClearPeriodicTime();
-//    }
-//    else
-//        UART_OutStringCRLF("Invalid os command. Type \"os -h\" for a list of commands.");
+    char *currTok = strtok(comm, " \t");
+
+    if(strcmp((const char*) currTok, "ints") == 0) {
+#if DEBUG
+      UART_OutStringCRLF("OS interrupt info:");
+      UART_OutString("Max Time Ints Disabled: "); UART_OutUDec(OS_MaxTimeIntsDisabled() / 800); UART_OutStringCRLF(" x 0.1us");
+      UART_OutString("Time Ints Disabled: "); UART_OutUDec(OS_TimeIntsDisabled() / 800); UART_OutStringCRLF(" x 0.1us");
+      UART_OutString("Percent Time Ints Disabled: "); UART_OutUDec(OS_PercentIntsDisabled()); UART_OutStringCRLF(" %");
+#else
+      UART_OutStringCRLF("You are not in debug mode. Set DEBUG in os.h to 1");
+#endif
+    } else if(strcmp((const char*) currTok, "count") == 0) {
+      UART_OutString("OS time: "); UART_OutUDec(OS_Time()); UART_OutStringCRLF(" x 12.5ns");
+    } else if(strcmp((const char*) currTok, "clear") == 0) {
+      UART_OutStringCRLF("Clearing OS Time...");
+      OS_ClearMsTime();
+    } else
+      UART_OutStringCRLF("Invalid os command. Type \"os -h\" for a list of commands.");
 }
 
 static void lcd_runComm(const char *comm) {

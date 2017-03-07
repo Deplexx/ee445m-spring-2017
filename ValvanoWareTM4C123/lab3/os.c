@@ -48,8 +48,6 @@
 #define NVIC_INT_CTRL_PENDSTSET 0x04000000  // Set pending SysTick interrupt
 #define NVIC_SYS_PRI3_R         (*((volatile uint32_t *)0xE000ED20))  // Sys. Handlers 12 to 15 Priority
 
-#define DEBUG 1
-
 // function definitions in osasm.s
 void DisableInterrupts(void); // Disable interrupts
 void EnableInterrupts(void);  // Enable interrupts
@@ -68,6 +66,7 @@ int numThreads = 0;
 int currentId = 0;
 
 #if DEBUG
+long MaxJitter;
 unsigned static long time11 = 0;  // time at previous ADC sample
 unsigned long time21 = 0;         // time at current ADC sample
 long MaxJitter1;             // largest time jitter between interrupts in usec
@@ -455,6 +454,8 @@ void PeriodicTaskWrapper1() {
         jitter = (PeriodicTaskPeriod1-deltaT+4)/8;  // in 0.1 usec
       if(jitter > MaxJitter1)
         MaxJitter1 = jitter; // in usec
+      if(MaxJitter1 > MaxJitter)
+          MaxJitter = MaxJitter1;
       if(jitter >= JitterSize1)
         jitter = JITTERSIZE-1;
       JitterHistogram1[jitter]++;
@@ -475,6 +476,8 @@ void PeriodicTaskWrapper2() {
         jitter = (PeriodicTaskPeriod2-deltaT+4)/8;  // in 0.1 usec
       if(jitter > MaxJitter2)
         MaxJitter2 = jitter; // in usec
+      if(MaxJitter2 > MaxJitter)
+        MaxJitter = MaxJitter2; // in usec
       if(jitter >= JitterSize2)
         jitter = JITTERSIZE-1;
       JitterHistogram2[jitter]++;
@@ -760,7 +763,7 @@ unsigned long OS_Time(void){
 }
 
 static unsigned long GetMasterTime(void) {
-    return TIMER4_TAILR_R - TIMER4_TAV_R + sysTime*TIME_1MS;
+    return TIMER4_TAILR_R - TIMER4_TAV_R + MasterTime*TIME_1MS;
 }
 
 // ******** OS_TimeDifference ************
@@ -784,6 +787,18 @@ void OS_ClearMsTime(void){
   //CountTimeSlice = 0;
   sysTime = 0;
   EndCritical(status);
+}
+
+int OS_MaxTimeIntsDisabled(void) {
+    return MaxTimeIntsDisabled;
+}
+
+int OS_TimeIntsDisabled(void) {
+    return TimeIntsDisabled;
+}
+
+int OS_PercentIntsDisabled(void) {
+    return PercentIntsDisabled;
 }
 
 // ******** OS_MsTime ************
@@ -886,16 +901,16 @@ void OS_DisableInterrupts(void) {
 }
 
 void OS_EnableInterrupts(void) {
-    EnableInterrupts();
 #if DEBUG
     unsigned long tmp = GetMasterTime();
     unsigned long t = OS_TimeDifference(TmpTimeIntsDisabled, tmp);
     TimeIntsDisabled += t;
     if(t > MaxTimeIntsDisabled)
         MaxTimeIntsDisabled = t;
-    PercentIntsDisabled = (TimeIntsDisabled * 100) / MasterTime;
+    PercentIntsDisabled = (TimeIntsDisabled * 100) / GetMasterTime();
     IntsEnabled = 1;
 #endif
+    EnableInterrupts();
 }
 
 long StartCritical(void) {
@@ -909,15 +924,14 @@ long StartCritical(void) {
 }
 
 void EndCritical(long sav) {
-    EndCriticalAsm(sav);
 #if DEBUG
     unsigned long tmp = GetMasterTime();
     unsigned long t = OS_TimeDifference(TmpTimeIntsDisabled, tmp);
     TimeIntsDisabled += t;
     if(t > MaxTimeIntsDisabled)
         MaxTimeIntsDisabled = t;
-    PercentIntsDisabled = (TimeIntsDisabled * 100) / MasterTime;
-    if(sav != 0)
-        IntsEnabled = 1;
+    PercentIntsDisabled = (TimeIntsDisabled * 100) / GetMasterTime();
+    IntsEnabled = !sav;
 #endif
+    EndCriticalAsm(sav);
 }

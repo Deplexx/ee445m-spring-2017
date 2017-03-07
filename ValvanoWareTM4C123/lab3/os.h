@@ -26,6 +26,9 @@
 #ifndef __OS_H
 #define __OS_H  1
 
+//debug flag; set to 0 to undefine some useful (but slow) debug info
+#define DEBUG 1
+
 // edit these depending on your clock        
 #define TIME_1MS    80000
 #define TIME_2MS    (2*TIME_1MS)  
@@ -294,6 +297,10 @@ void OS_ClearMsTime(void);
 // You are free to select the time resolution for this function
 // It is ok to make the resolution to match the first call to OS_AddPeriodicThread
 unsigned long OS_MsTime(void);
+
+int OS_MaxTimeIntsDisabled(void);
+int OS_TimeIntsDisabled(void);
+int OS_PercentIntsDisabled(void);
 
 //******** OS_Launch ***************
 // start the scheduler, enable interrupts
