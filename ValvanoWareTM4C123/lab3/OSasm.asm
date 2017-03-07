@@ -29,8 +29,10 @@
 
 
         .global  RunPt            ; currently running thread
-        .global  OS_DisableInterrupts
-        .global  OS_EnableInterrupts
+        .global  DisableInterrupts
+        .global  EnableInterrupts
+        .global  StartCriticalAsm
+        .global  EndCriticalAsm
         .global  StartOS
         .global  PendSV_Handler
         .global  SysTick_Handler
@@ -46,15 +48,26 @@ DEBUG .equ 1
 CountTimeSlicePtr .field CountTimeSlice, 32
 
 
-OS_DisableInterrupts:  .asmfunc
+DisableInterrupts:  .asmfunc
         CPSID   I
         BX      LR
        .endasmfunc
 
-OS_EnableInterrupts:  .asmfunc
+EnableInterrupts:  .asmfunc
         CPSIE   I
         BX      LR
        .endasmfunc
+
+StartCriticalAsm: .asmfunc
+        MRS R0, PRIMASK
+        CPSID I
+        BX LR
+        .endasmfunc
+
+EndCriticalAsm: .asmfunc
+        MSR PRIMASK, R0
+        BX LR
+        .endasmfunc
 
 RunPtAddr .field RunPt,32
 

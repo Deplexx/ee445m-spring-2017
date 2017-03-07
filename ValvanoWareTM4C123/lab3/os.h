@@ -26,6 +26,9 @@
 #ifndef __OS_H
 #define __OS_H  1
 
+//debug flag; set to 0 to undefine some useful (but slow) debug info
+#define DEBUG 1
+
 // edit these depending on your clock        
 #define TIME_1MS    80000
 #define TIME_2MS    (2*TIME_1MS)  
@@ -295,12 +298,23 @@ void OS_ClearMsTime(void);
 // It is ok to make the resolution to match the first call to OS_AddPeriodicThread
 unsigned long OS_MsTime(void);
 
+int OS_MaxTimeIntsDisabled(void);
+int OS_TimeIntsDisabled(void);
+int OS_PercentIntsDisabled(void);
+
 //******** OS_Launch ***************
 // start the scheduler, enable interrupts
 // Inputs: number of 20ns clock cycles for each time slice
 //         (maximum of 24 bits)
 // Outputs: none (does not return)
 void OS_Launch(uint32_t theTimeSlice);
+
+void Jitter(void);
+
+void OS_DisableInterrupts(void);
+void OS_EnableInterrupts(void);
+long StartCritical(void);
+void EndCritical(long res);
 
 #endif
 
