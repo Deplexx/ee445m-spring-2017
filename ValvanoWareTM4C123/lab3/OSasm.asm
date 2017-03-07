@@ -36,10 +36,12 @@
         .global  StartOS
         .global  PendSV_Handler
         .global  SysTick_Handler
-        .global  OS_Wait
-        .global  OS_bWait
+        ;.global  OS_Wait
+        ;.global  OS_bWait
         .ref     BlockThread
         .ref     UnblockThread
+        .ref     addTInfo
+
 
 DEBUG .equ 1
         .def DEBUG
@@ -97,24 +99,55 @@ PendSV_Handler: .asmfunc
   LDR     R0, RunPtAddr         ; 4) R0=pointer to RunPt, old thread
   LDR     R1, [R0]           ;    R1 = RunPt
   STR     SP, [R1]           ; 5) Save SP into TCB
-PendSV_Next_Thread:
-  LDR     R1, [R1,#4]        ; 6) R1 = RunPt->next
-  LDR     R2, [R1,#16]       ; RunPt->next->sleep
+;PendSV_Next_Thread:
+;  LDR     R1, [R1,#4]        ; 6) R1 = RunPt->next
+;  LDR     R2, [R1,#16]       ; RunPt->next->sleep
+;  CMP     R2, #0
+;  BNE     PendSV_Next_Thread
+;  LDR     R2, [R1, #28]      ; RunPt->next->blocked
+;  CMP     R2, #0             ; is thread blocked?
+;  BNE     PendSV_Next_Thread
+
+
+;  STR     R1, [R0]           ;    RunPt = R1
+;  LDR     SP, [R1]           ; 7) new thread SP; SP = RunPt->sp;
+
+  LDR     R3, [R1,#4]        ; R3 is an iterator, R3 = RunPt->next
+  MOV     R1, R3
+  MOV     R5, R3             ; R5 nextThread
+  MOV     R4, #0x7FFF    ; R4 priority
+
+PendSV_Priority:
+  LDR     R2, [R1,#16]       ; R3->sleep
   CMP     R2, #0
-  BNE     PendSV_Next_Thread
-  LDR     R2, [R1, #28]      ; RunPt->next->blocked
-  CMP     R2, #0             ; is thread blocked?
-  BNE     PendSV_Next_Thread
+  BNE     PendSV_Next
+  LDR     R2, [R1,#28]       ; R3->blocked
+  CMP     R2, #0
+  BNE     PendSV_Next
+  LDR     R2, [R1,#24]       ; R3->pri
+  CMP     R2, R4             ; R2 < R4 ?
+  BGE     PendSV_Next
+PendSV_Update:
+    MOV     R5, R3
+  MOV     R4, R2
+PendSV_Next:
+    LDR     R3, [R3,#4]        ; increment
+  CMP     R3, R1
+  BNE     PendSV_Priority   ; R3 != RunPt
+  STR     R5, [R0]           ; update RunPt
+  LDR     SP, [R5]
 
-
-  STR     R1, [R0]           ;    RunPt = R1
-  LDR     SP, [R1]           ; 7) new thread SP; SP = RunPt->sp;
   POP     {R4-R11}           ; 8) restore regs r4-11
   .if DEBUG
   LDR     R0, PF2Ptr           ; toggle heartbeat
   LDR     R1, [R0]
   EOR     R1, #0x04
   STR     R1, [R0]
+
+  PUSH {LR}
+  MOV R0, #0
+  BL addTInfo
+  POP {LR}
   .endif
   CPSIE   I                  ; 9) tasks run with interrupts enabled
   BX      LR                 ; 10) restore R0-R3,R12,LR,PC,PSR
@@ -137,17 +170,41 @@ SysTick_Handler:  .asmfunc     ; 1) Saves R0-R3,R12,LR,PC,PSR
   LDR     R0, RunPtAddr         ; 4) R0=pointer to RunPt, old thread
   LDR     R1, [R0]           ;    R1 = RunPt
   STR     SP, [R1]           ; 5) Save SP into TCB
-SysTick_Next_Thread:
-  LDR     R1, [R1,#4]        ; 6) R1 = RunPt->next
-  LDR     R2, [R1,#16]       ; RunPt->next->sleep
-  CMP     R2, #0
-  BNE     SysTick_Next_Thread
-  LDR     R2, [R1, #28]      ; RunPt->next->blocked
-  CMP     R2, #0             ; is thread blocked?
-  BNE     SysTick_Next_Thread
+;SysTick_Next_Thread:
+;  LDR     R1, [R1,#4]        ; 6) R1 = RunPt->next
+;  LDR     R2, [R1,#16]       ; RunPt->next->sleep
+;  CMP     R2, #0
+;  BNE     SysTick_Next_Thread
+;  LDR     R2, [R1, #28]      ; RunPt->next->blocked
+;  CMP     R2, #0             ; is thread blocked?
+;  BNE     SysTick_Next_Thread
 
-  STR     R1, [R0]           ;    RunPt = R1
-  LDR     SP, [R1]           ; 7) new thread SP; SP = RunPt->sp;
+  LDR     R3, [R1,#4]        ; R3 is an iterator, R3 = RunPt->next
+  MOV     R5, R3             ; R5 nextThread
+  MOV     R4, #0x7FFF    ; R4 priority
+
+SysTick_Priority:
+  LDR     R2, [R1,#16]       ; R3->sleep
+  CMP     R2, #0
+  BNE     SysTick_Next
+  LDR     R2, [R1,#28]       ; R3->blocked
+  CMP     R2, #0
+  BNE     SysTick_Next
+  LDR     R2, [R1,#24]       ; R3->pri
+  CMP     R2, R4             ; R2 < R4 ?
+  BGE     SysTick_Next
+SysTick_Update:
+  MOV     R5, R3
+  MOV     R4, R2
+SysTick_Next:
+  LDR     R3, [R3,#4]        ; increment
+  CMP     R3, R1
+  BNE     SysTick_Priority   ; R3 != RunPt
+  STR     R5, [R0]           ; update RunPt
+  LDR     SP, [R5]
+
+  ;STR     R1, [R0]           ;    RunPt = R1
+  ;LDR     SP, [R1]           ; 7) new thread SP; SP = RunPt->sp;
   POP     {R4-R11}           ; 8) restore regs r4-11
   .if DEBUG
   LDR     R0, PF1Ptr           ; toggle heartbeat

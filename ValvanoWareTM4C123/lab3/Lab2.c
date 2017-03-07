@@ -31,11 +31,10 @@
 #include "ADC.h"
 #include "os.h"
 #include "ST7735.h"
-#include "UART.h"
 #include "uart_interp.h"
 
-#define Lab2 0
-#define Lab3 1
+#define Lab2 1
+#define Lab3 0
 //*********Prototype for FFT in cr4_fft_64_stm32.s, STMicroelectronics
 void cr4_fft_64_stm32(void *pssOUT, void *pssIN, unsigned short Nbin);
 //*********Prototype for PID in PID_stm32.s, STMicroelectronics
@@ -346,7 +345,7 @@ int main(void){
 // create initial foreground threads
   NumCreated += OS_AddThread(&Interpreter,128,2); 
   NumCreated += OS_AddThread(&Consumer,128,1);
-  NumCreated += OS_AddThread(&PID,128,3);  // Lab 3, make this lowest priority
+  NumCreated += OS_AddThread(&PID,128,0);  // Lab 3, make this lowest priority
  
   OS_Launch(TIME_2MS); // doesn't return, interrupts enabled in here
   return 0;            // this never executes
@@ -365,7 +364,7 @@ int main(void){
 // no ADC serial port or LCD output
 // no calls to semaphores
 
-
+/*
 unsigned long Count1;   // number of times thread1 loops
 unsigned long Count2;   // number of times thread2 loops
 unsigned long Count3;   // number of times thread3 loops
@@ -409,7 +408,7 @@ int Testmain1(void){  // Testmain1
   return 0;            // this never executes
 }
 
-//*******************Second TEST**********
+// *******************Second TEST**********
 // Once the initalize test runs, test this (Lab 1 part 1)
 // no UART interrupts
 // SYSTICK interrupts, with or without period established by OS_Launch
@@ -438,7 +437,7 @@ void Thread3b(void){
     Count3++;
   }
 }
-int main2(void){  // Testmain2
+int main(void){  // Testmain2
   OS_Init();           // initialize, disable interrupts
   PortE_Init();       // profile user threads
   NumCreated = 0 ;
@@ -452,7 +451,7 @@ int main2(void){  // Testmain2
   return 0;            // this never executes
 }
 
-//*******************Third TEST**********
+// *******************Third TEST**********
 // Once the second test runs, test this (Lab 1 part 2)
 // no UART1 interrupts
 // SYSTICK interrupts, with or without period established by OS_Launch
@@ -517,7 +516,7 @@ int Testmain3(void){   // Testmain3
   return 0;            // this never executes
 }
 
-//*******************Fourth TEST**********
+// *******************Fourth TEST**********
 // Once the third test runs, run this example (Lab 1 part 2)
 // Count1 should exactly equal Count2
 // Count3 should be very large
@@ -578,7 +577,7 @@ int Testmain4(void){   // Testmain4
   return 0;            // this never executes
 }
 
-//*******************Eight TEST**********
+// *******************Eight TEST**********
 // FIFO test
 // Count1 should exactly equal Count2
 // Count3 should be very large
@@ -622,7 +621,7 @@ int Testmain8(void){   // Testmain8
   return 0;            // this never executes
 }
 
-//******************* Lab 3 Preparation 2**********
+// ******************* Lab 3 Preparation 2**********
 // Modify this so it runs with your RTOS (i.e., fix the time units to match your OS)
 // run this with 
 // UART0, 115200 baud rate, used to output results 
@@ -636,7 +635,7 @@ unsigned long CountB;   // number of times Task B called
 unsigned long Count1;   // number of times thread1 loops
 
 
-//*******PseudoWork*************
+// *******PseudoWork*************
 // simple time delay, simulates user program doing real work
 // Input: amount of work in 100ns units (free free to change units
 // Output: none
@@ -655,7 +654,7 @@ void Thread6(void){  // foreground thread
 extern void Jitter(void);   // prints jitter information (write this)
 void Thread7(void){  // foreground thread
   UART_OutString("\n\rEE345M/EE380L, Lab 3 Preparation 2\n\r");
-  OS_Sleep(5000);   // 10 seconds
+  OS_Sleep(5000);   // 10 seconds        
   Jitter();         // print jitter information
   UART_OutString("\n\r\n\r");
   OS_Kill();
@@ -682,7 +681,7 @@ int Testmain5(void){       // Testmain5 Lab 3
   NumCreated = 0 ;
   NumCreated += OS_AddThread(&Thread6,128,2); 
   NumCreated += OS_AddThread(&Thread7,128,1); 
-  OS_AddPeriodicThread(&TaskA,2*TIME_1MS + TIME_1MS / 2,0);           // 1 ms, higher priority
+  OS_AddPeriodicThread(&TaskA,TIME_1MS,0);           // 1 ms, higher priority
   OS_AddPeriodicThread(&TaskB,2*TIME_1MS,1);         // 2 ms, lower priority
  
   OS_Launch(TIME_2MS); // 2ms, doesn't return, interrupts enabled in here
@@ -690,7 +689,7 @@ int Testmain5(void){       // Testmain5 Lab 3
 }
 
 
-//******************* Lab 3 Preparation 4**********
+// ******************* Lab 3 Preparation 4**********
 // Modify this so it runs with your RTOS used to test blocking semaphores
 // run this with 
 // UART0, 115200 baud rate,  used to output results 
@@ -790,7 +789,7 @@ int Testmain6(void){      // Testmain6  Lab 3
 }
 
 
-//******************* Lab 3 Measurement of context switch time**********
+// ******************* Lab 3 Measurement of context switch time**********
 // Run this to measure the time it takes to perform a task switch
 // UART0 not needed 
 // SYSTICK interrupts, period established by OS_Launch
@@ -813,3 +812,4 @@ int Testmain7(void){       // Testmain7
   OS_Launch(TIME_1MS/10); // 100us, doesn't return, interrupts enabled in here
   return 0;             // this never executes
 }
+*/

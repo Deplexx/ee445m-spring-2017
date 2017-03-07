@@ -29,6 +29,20 @@
 //debug flag; set to 0 to undefine some useful (but slow) debug info
 #define DEBUG 1
 
+#if DEBUG
+enum tEvent {
+    tStart, pStart, pStop
+};
+
+struct tinfo {
+    int tid;
+    enum tEvent e;
+    long t;
+};
+
+void addTInfo(enum tEvent e);
+#endif
+
 // edit these depending on your clock        
 #define TIME_1MS    80000
 #define TIME_2MS    (2*TIME_1MS)  

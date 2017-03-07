@@ -66,7 +66,7 @@ int numThreads = 0;
 int currentId = 0;
 
 #if DEBUG
-long MaxJitter;
+//long MaxJitter;
 unsigned static long time11 = 0;  // time at previous ADC sample
 unsigned long time21 = 0;         // time at current ADC sample
 long MaxJitter1;             // largest time jitter between interrupts in usec
@@ -90,27 +90,6 @@ static int TmpTimeIntsDisabled;
 static int MaxTimeIntsDisabled = 0;
 static int TimeIntsDisabled = 0;
 static int PercentIntsDisabled = 0;
-static unsigned long GetMasterTime(void);
-#endif
-
-#if DEBUG
-
-#define TINFO_BUF_SIZE 100
-struct tinfo tInfoBuf[TINFO_BUF_SIZE];
-
-int tinfoBufI = 0;
-
-void addTInfo(enum tEvent e) {
-    if(tinfoBufI >= 100)
-        return;
-
-    tInfoBuf[tinfoBufI].tid = OS_Id();
-    tInfoBuf[tinfoBufI].e = e;
-    tInfoBuf[tinfoBufI].t = GetMasterTime();
-
-    tinfoBufI++;
-}
-
 #endif
 
 //"bootstraps" the next pointer for context switch
@@ -126,7 +105,11 @@ tcbType *runTail = 0;
 volatile uint32_t CountTimeSlice = 0; // increments every systick
 volatile uint32_t sysTime = 0;
 
+<<<<<<< HEAD
 #define OS_FIFOSIZE    128         // size of the FIFOs (must be power of 2)
+=======
+#define OS_FIFOSIZE    256         // size of the FIFOs (must be power of 2)
+>>>>>>> 7188eb3ee033f6e277ca7203144aba0ae4327462
 #define OS_FIFOSUCCESS 1        // return value on success
 #define OS_FIFOFAIL    0         // return value on failure
 static Sema4Type fifoEmpty;
@@ -138,6 +121,8 @@ static Sema4Type mailPost;
 static Sema4Type mailRecv;
 static Sema4Type mailLock;
 static unsigned long Mail;
+
+static unsigned long GetMasterTime(void);
 
 static void Jitter_Init(void);
 
@@ -356,6 +341,14 @@ void OS_Launch(uint32_t theTimeSlice){
   NVIC_ST_RELOAD_R = theTimeSlice - 1; // reload value
   NVIC_ST_CTRL_R = 0x00000007; // enable, core clock and interrupt arm
   TIMER4_CTL_R = 0x00000001;    // 10) enable TIMER4A
+  
+  /*
+  if(SYSCTL_RCGCTIMER_R & 0x08)
+    TIMER3_CTL_R = 0x00000001;
+  if(SYSCTL_RCGCTIMER_R & 0x20)
+    TIMER5_CTL_R = 0x00000001;
+  */
+  
   StartOS();                   // start on the first task
 }
 
@@ -461,47 +454,37 @@ void(*PeriodicTask2)(void);
 
 #if DEBUG
 void PeriodicTaskWrapper1() {
-  time21 = OS_Time();
+  TIMER3_ICR_R = TIMER_ICR_TATOCINT;// acknowledge TIMER3A timeout
   (*PeriodicTask1)();                // execute user task
-  if(time11 != 0) {
-      unsigned long deltaT = OS_TimeDifference(time11, time21);
-      unsigned long jitter;
-
-      if(deltaT>PeriodicTaskPeriod1)
-        jitter = (deltaT-PeriodicTaskPeriod1+4)/8;  // in 0.1 usec
-      else
-        jitter = (PeriodicTaskPeriod1-deltaT+4)/8;  // in 0.1 usec
-      if(jitter > MaxJitter1)
-        MaxJitter1 = jitter; // in usec
-      if(MaxJitter1 > MaxJitter)
-          MaxJitter = MaxJitter1;
-      if(jitter >= JitterSize1)
-        jitter = JITTERSIZE-1;
-      JitterHistogram1[jitter]++;
-  }
-  time11 = time21;
+  unsigned long deltaT = OS_TimeDifference(time11, time21);
+  unsigned long jitter;
+  if(deltaT>PeriodicTaskPeriod1)
+    jitter = (deltaT-PeriodicTaskPeriod1+4)/8;  // in 0.1 usec
+  else
+    jitter = (PeriodicTaskPeriod1-deltaT+4)/8;  // in 0.1 usec
+  if(jitter > MaxJitter1)
+    MaxJitter1 = jitter; // in usec
+  if(jitter >= JitterSize1)
+    jitter = JITTERSIZE-1;
+  JitterHistogram1[jitter]++;
 }
 
 void PeriodicTaskWrapper2() {
-  time22 = OS_Time();
-  (*PeriodicTask2)();                // execute user task
-  if(time12 != 0) {
-      unsigned long deltaT = OS_TimeDifference(time12, time22);
-      unsigned long jitter;
-
-      if(deltaT>PeriodicTaskPeriod2)
-        jitter = (deltaT-PeriodicTaskPeriod2+4)/8;  // in 0.1 usec
-      else
-        jitter = (PeriodicTaskPeriod2-deltaT+4)/8;  // in 0.1 usec
-      if(jitter > MaxJitter2)
-        MaxJitter2 = jitter; // in usec
-      if(MaxJitter2 > MaxJitter)
-        MaxJitter = MaxJitter2; // in usec
-      if(jitter >= JitterSize2)
-        jitter = JITTERSIZE-1;
-      JitterHistogram2[jitter]++;
-  }
-  time12 = time22;
+  /*
+  TIMER3_ICR_R = TIMER_ICR_TATOCINT;// acknowledge TIMER3A timeout
+  (*PeriodicTask)();                // execute user task
+  unsigned long deltaT = OS_TimeDifference(time11, time21);
+  unsigned long jitter;
+  if(deltaT>PeriodicTaskPeriod)
+    jitter = (deltaT-PeriodicTaskPeriod+4)/8;  // in 0.1 usec
+  else
+    jitter = (PeriodicTaskPeriod-deltaT+4)/8;  // in 0.1 usec
+  if(jitter > MaxJitter1)
+    MaxJitter1 = jitter; // in usec
+  if(jitter >= JitterSize1)
+    jitter = JITTERSIZE-1;
+  JitterHistogram1[jitter]++;
+  */
 }
 #endif
 
@@ -578,9 +561,7 @@ int OS_AddPeriodicThread(void(*task)(void),unsigned long period, unsigned long p
 void Timer3A_Handler(void){
   TIMER3_ICR_R = TIMER_ICR_TATOCINT;// acknowledge TIMER3A timeout
 #if DEBUG
-  addTInfo(pStart);
   PeriodicTaskWrapper1();
-  addTInfo(pStop);
 #else
   (*PeriodicTask1)();                // execute user task
 #endif
@@ -589,9 +570,7 @@ void Timer3A_Handler(void){
 void Timer5A_Handler(void){
   TIMER5_ICR_R = TIMER_ICR_TATOCINT;// acknowledge TIMER5A timeout
 #if DEBUG
-  addTInfo(pStart);
   PeriodicTaskWrapper2();
-  addTInfo(pStop);
 #else
   (*PeriodicTask2)();                // execute user task
 #endif
@@ -785,11 +764,9 @@ unsigned long OS_Time(void){
   return value;
 }
 
-#if DEBUG
 static unsigned long GetMasterTime(void) {
     return TIMER4_TAILR_R - TIMER4_TAV_R + MasterTime*TIME_1MS;
 }
-#endif
 
 // ******** OS_TimeDifference ************
 // Calculates difference between two times
@@ -838,46 +815,6 @@ unsigned long OS_MsTime(void){
   return sysTime;
 }
 
-//OS_Wait_store_back:
-//    PUSH  {LR}
-//    BL BlockThread
-//    POP   {LR}
-//    DMB
-//    BX LR
-//OS_Wait: .asmfunc
-//    LDREX R1, [R0] ; R0 = &sema
-//    CMP R1, #0
-//    BLT OS_Wait_store_back
-//    ADD R1, R1, #-1
-//    STREX R2, R1, [R0]
-//    CMP R2, #0
-//    BNE OS_Wait
-//    DMB
-//    BX LR
-//    .endasmfunc
-
-void OS_bWait(Sema4Type *sema) {
-    OS_DisableInterrupts();
-
-    if(sema->Value < 0)
-        BlockThread(sema);
-    else
-        sema->Value = -1;
-
-    OS_EnableInterrupts();
-}
-
-void OS_Wait(Sema4Type *sema) {
-    OS_DisableInterrupts();
-
-    --sema->Value;
-
-    if(sema->Value < 0)
-        BlockThread(sema);
-
-    OS_EnableInterrupts();
-}
-
 void BlockThread(Sema4Type *sema) {
     OS_DisableInterrupts();
 
@@ -914,13 +851,13 @@ void OS_bSignal(Sema4Type *semaPt) {
 
 void OS_Signal(Sema4Type *semaPt) {
     OS_DisableInterrupts();
-    ++semaPt->Value;
     tcbType *t = semaPt->next;
     if(t != NULL) {
         semaPt->next = semaPt->next->bNext;
         t->bNext = NULL;
         t->blocked = 0;
-    }
+    } else
+      ++semaPt->Value;
 
     //2 trigger pendsv
     NVIC_INT_CTRL_R |= 0x10000000;
