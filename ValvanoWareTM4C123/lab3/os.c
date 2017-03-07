@@ -105,7 +105,7 @@ tcbType *runTail = 0;
 volatile uint32_t CountTimeSlice = 0; // increments every systick
 volatile uint32_t sysTime = 0;
 
-#define OS_FIFOSIZE    4         // size of the FIFOs (must be power of 2)
+#define OS_FIFOSIZE    128         // size of the FIFOs (must be power of 2)
 #define OS_FIFOSUCCESS 1        // return value on success
 #define OS_FIFOFAIL    0         // return value on failure
 static Sema4Type fifoEmpty;
