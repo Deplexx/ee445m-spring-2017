@@ -345,7 +345,7 @@ int main(void){
 // create initial foreground threads
   NumCreated += OS_AddThread(&Interpreter,128,2); 
   NumCreated += OS_AddThread(&Consumer,128,1);
-  NumCreated += OS_AddThread(&PID,128,3);  // Lab 3, make this lowest priority
+  NumCreated += OS_AddThread(&PID,128,0);  // Lab 3, make this lowest priority
  
   OS_Launch(TIME_2MS); // doesn't return, interrupts enabled in here
   return 0;            // this never executes
@@ -408,7 +408,7 @@ int Testmain1(void){  // Testmain1
   return 0;            // this never executes
 }
 
-//*******************Second TEST**********
+// *******************Second TEST**********
 // Once the initalize test runs, test this (Lab 1 part 1)
 // no UART interrupts
 // SYSTICK interrupts, with or without period established by OS_Launch
@@ -451,7 +451,7 @@ int main(void){  // Testmain2
   return 0;            // this never executes
 }
 
-//*******************Third TEST**********
+// *******************Third TEST**********
 // Once the second test runs, test this (Lab 1 part 2)
 // no UART1 interrupts
 // SYSTICK interrupts, with or without period established by OS_Launch
@@ -516,7 +516,7 @@ int Testmain3(void){   // Testmain3
   return 0;            // this never executes
 }
 
-//*******************Fourth TEST**********
+// *******************Fourth TEST**********
 // Once the third test runs, run this example (Lab 1 part 2)
 // Count1 should exactly equal Count2
 // Count3 should be very large
@@ -577,7 +577,7 @@ int Testmain4(void){   // Testmain4
   return 0;            // this never executes
 }
 
-//*******************Eight TEST**********
+// *******************Eight TEST**********
 // FIFO test
 // Count1 should exactly equal Count2
 // Count3 should be very large
@@ -621,7 +621,7 @@ int Testmain8(void){   // Testmain8
   return 0;            // this never executes
 }
 
-//******************* Lab 3 Preparation 2**********
+// ******************* Lab 3 Preparation 2**********
 // Modify this so it runs with your RTOS (i.e., fix the time units to match your OS)
 // run this with 
 // UART0, 115200 baud rate, used to output results 
@@ -635,7 +635,7 @@ unsigned long CountB;   // number of times Task B called
 unsigned long Count1;   // number of times thread1 loops
 
 
-//*******PseudoWork*************
+// *******PseudoWork*************
 // simple time delay, simulates user program doing real work
 // Input: amount of work in 100ns units (free free to change units
 // Output: none
@@ -689,7 +689,7 @@ int Testmain5(void){       // Testmain5 Lab 3
 }
 
 
-//******************* Lab 3 Preparation 4**********
+// ******************* Lab 3 Preparation 4**********
 // Modify this so it runs with your RTOS used to test blocking semaphores
 // run this with 
 // UART0, 115200 baud rate,  used to output results 
@@ -789,7 +789,7 @@ int Testmain6(void){      // Testmain6  Lab 3
 }
 
 
-//******************* Lab 3 Measurement of context switch time**********
+// ******************* Lab 3 Measurement of context switch time**********
 // Run this to measure the time it takes to perform a task switch
 // UART0 not needed 
 // SYSTICK interrupts, period established by OS_Launch

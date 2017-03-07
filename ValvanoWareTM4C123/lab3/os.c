@@ -94,7 +94,7 @@ tcbType *runTail = 0;
 volatile uint32_t CountTimeSlice = 0; // increments every systick
 volatile uint32_t sysTime = 0;
 
-#define OS_FIFOSIZE    4         // size of the FIFOs (must be power of 2)
+#define OS_FIFOSIZE    256         // size of the FIFOs (must be power of 2)
 #define OS_FIFOSUCCESS 1        // return value on success
 #define OS_FIFOFAIL    0         // return value on failure
 static Sema4Type fifoEmpty;
@@ -322,6 +322,14 @@ void OS_Launch(uint32_t theTimeSlice){
   NVIC_ST_RELOAD_R = theTimeSlice - 1; // reload value
   NVIC_ST_CTRL_R = 0x00000007; // enable, core clock and interrupt arm
   TIMER4_CTL_R = 0x00000001;    // 10) enable TIMER4A
+  
+  /*
+  if(SYSCTL_RCGCTIMER_R & 0x08)
+    TIMER3_CTL_R = 0x00000001;
+  if(SYSCTL_RCGCTIMER_R & 0x20)
+    TIMER5_CTL_R = 0x00000001;
+  */
+  
   StartOS();                   // start on the first task
 }
 
@@ -801,4 +809,24 @@ void OS_Signal(Sema4Type *semaPt) {
     //2 trigger pendsv
     NVIC_INT_CTRL_R |= 0x10000000;
     OS_EnableInterrupts();
+}
+
+void setNextThread(void){
+  tcbType *t = RunPt->next;
+  tcbType *next = t;
+  int pri = 999999;
+  while(t != RunPt){
+    //check for sleep or block
+    if(t->blocked == 1) {t = t->next; continue;}
+    if(t->sleep > 0)    {t = t->next; continue;}
+    if(t->pri < pri){
+      pri = t->pri;
+      next = t;
+    }
+    t = t->next;
+  }
+  //final comparison to current RunPt
+  //round robin if equal priority
+  if(next->pri <= RunPt->pri)
+    RunPt = next;
 }
