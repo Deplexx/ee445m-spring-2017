@@ -591,8 +591,8 @@ PWM1Fault_Handler
 ;******************************************************************************
         EXPORT  DisableInterrupts
         EXPORT  EnableInterrupts
-        EXPORT  StartCritical
-        EXPORT  EndCritical
+        EXPORT  StartCriticalAsm
+        EXPORT  EndCriticalAsm
         EXPORT  WaitForInterrupt
 
 ;*********** DisableInterrupts ***************
@@ -615,7 +615,7 @@ EnableInterrupts
 ; make a copy of previous I bit, disable interrupts
 ; inputs:  none
 ; outputs: previous I bit
-StartCritical
+StartCriticalAsm
         MRS    R0, PRIMASK  ; save old status
         CPSID  I            ; mask all (except faults)
         BX     LR
@@ -624,7 +624,7 @@ StartCritical
 ; using the copy of previous I bit, restore I bit to previous value
 ; inputs:  previous I bit
 ; outputs: none
-EndCritical
+EndCriticalAsm
         MSR    PRIMASK, R0
         BX     LR
 

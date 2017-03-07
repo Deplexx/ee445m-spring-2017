@@ -66,7 +66,7 @@ int numThreads = 0;
 int currentId = 0;
 
 #if DEBUG
-long MaxJitter;
+//long MaxJitter;
 unsigned static long time11 = 0;  // time at previous ADC sample
 unsigned long time21 = 0;         // time at current ADC sample
 long MaxJitter1;             // largest time jitter between interrupts in usec
@@ -450,47 +450,37 @@ void(*PeriodicTask2)(void);
 
 #if DEBUG
 void PeriodicTaskWrapper1() {
-  time21 = OS_Time();
+  TIMER3_ICR_R = TIMER_ICR_TATOCINT;// acknowledge TIMER3A timeout
   (*PeriodicTask1)();                // execute user task
-  if(time11 != 0) {
-      unsigned long deltaT = OS_TimeDifference(time11, time21);
-      unsigned long jitter;
-
-      if(deltaT>PeriodicTaskPeriod1)
-        jitter = (deltaT-PeriodicTaskPeriod1+4)/8;  // in 0.1 usec
-      else
-        jitter = (PeriodicTaskPeriod1-deltaT+4)/8;  // in 0.1 usec
-      if(jitter > MaxJitter1)
-        MaxJitter1 = jitter; // in usec
-      if(MaxJitter1 > MaxJitter)
-          MaxJitter = MaxJitter1;
-      if(jitter >= JitterSize1)
-        jitter = JITTERSIZE-1;
-      JitterHistogram1[jitter]++;
-  }
-  time11 = time21;
+  unsigned long deltaT = OS_TimeDifference(time11, time21);
+  unsigned long jitter;
+  if(deltaT>PeriodicTaskPeriod1)
+    jitter = (deltaT-PeriodicTaskPeriod1+4)/8;  // in 0.1 usec
+  else
+    jitter = (PeriodicTaskPeriod1-deltaT+4)/8;  // in 0.1 usec
+  if(jitter > MaxJitter1)
+    MaxJitter1 = jitter; // in usec
+  if(jitter >= JitterSize1)
+    jitter = JITTERSIZE-1;
+  JitterHistogram1[jitter]++;
 }
 
 void PeriodicTaskWrapper2() {
-  time22 = OS_Time();
-  (*PeriodicTask2)();                // execute user task
-  if(time12 != 0) {
-      unsigned long deltaT = OS_TimeDifference(time12, time22);
-      unsigned long jitter;
-
-      if(deltaT>PeriodicTaskPeriod2)
-        jitter = (deltaT-PeriodicTaskPeriod2+4)/8;  // in 0.1 usec
-      else
-        jitter = (PeriodicTaskPeriod2-deltaT+4)/8;  // in 0.1 usec
-      if(jitter > MaxJitter2)
-        MaxJitter2 = jitter; // in usec
-      if(MaxJitter2 > MaxJitter)
-        MaxJitter = MaxJitter2; // in usec
-      if(jitter >= JitterSize2)
-        jitter = JITTERSIZE-1;
-      JitterHistogram2[jitter]++;
-  }
-  time12 = time22;
+  /*
+  TIMER3_ICR_R = TIMER_ICR_TATOCINT;// acknowledge TIMER3A timeout
+  (*PeriodicTask)();                // execute user task
+  unsigned long deltaT = OS_TimeDifference(time11, time21);
+  unsigned long jitter;
+  if(deltaT>PeriodicTaskPeriod)
+    jitter = (deltaT-PeriodicTaskPeriod+4)/8;  // in 0.1 usec
+  else
+    jitter = (PeriodicTaskPeriod-deltaT+4)/8;  // in 0.1 usec
+  if(jitter > MaxJitter1)
+    MaxJitter1 = jitter; // in usec
+  if(jitter >= JitterSize1)
+    jitter = JITTERSIZE-1;
+  JitterHistogram1[jitter]++;
+  */
 }
 #endif
 

@@ -29,8 +29,8 @@
         PRESERVE8
 
         EXTERN  RunPt            ; currently running thread
-        EXPORT  OS_DisableInterrupts
-        EXPORT  OS_EnableInterrupts
+;        EXPORT  DisableInterrupts
+;       EXPORT  EnableInterrupts
         EXPORT  StartOS
         EXPORT  SysTick_Handler
 		EXPORT  PendSV_Handler
@@ -43,13 +43,13 @@
 PF1    EQU     0x40025008
 PF2    EQU     0x40025010
 
-OS_DisableInterrupts
-        CPSID   I
-        BX      LR
+;DisableInterrupts
+;        CPSID   I
+;        BX      LR
 
-OS_EnableInterrupts
-        CPSIE   I
-        BX      LR
+;EnableInterrupts
+;        CPSIE   I
+;        BX      LR
 
 SysTick_Handler                ; 1) Saves R0-R3,R12,LR,PC,PSR
     CPSID   I                  ; 2) Prevent interrupt during switch
