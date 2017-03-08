@@ -718,11 +718,13 @@ void OS_Fifo_Init(unsigned long size) { //size is ignored for lab 2
 int OS_Fifo_Put(unsigned long data) {
     int ret;
 
-    OS_Wait(&fifoFull);
-    OS_bWait(&fifoLock);
+//    OS_Wait(&fifoFull);
+//    OS_bWait(&fifoLock);
+    long sav = StartCritical();
     ret = OSFifo_Put(data);
-    OS_bSignal(&fifoLock);
-    OS_Signal(&fifoEmpty);
+    EndCritical(sav);
+//    OS_bSignal(&fifoLock);
+//    OS_Signal(&fifoEmpty);
 
     return ret;
 }
@@ -730,11 +732,13 @@ int OS_Fifo_Put(unsigned long data) {
 unsigned long OS_Fifo_Get(void) {
     unsigned long ret;
 
-    OS_Wait(&fifoEmpty);
-    OS_bWait(&fifoLock);
+//    OS_Wait(&fifoEmpty);
+    //OS_bWait(&fifoLock);
+    long sav = StartCritical();
     OSFifo_Get(&ret);
-    OS_bSignal(&fifoLock);
-    OS_Signal(&fifoFull);
+    EndCritical(sav);
+    //OS_bSignal(&fifoLock);
+    //OS_Signal(&fifoFull);
 
     return ret;
 }
