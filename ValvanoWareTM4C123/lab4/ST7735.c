@@ -53,9 +53,9 @@
 // Gnd (pin 1) connected to ground
 #include <stdint.h>
 #include "ST7735.h"
-#include "eDisk.h"
-#include "inc/tm4c123gh6pm.h"
-#include "OS.h"
+#include "edisk.h"
+#include "../inc/tm4c123gh6pm.h"
+#include "os.h"
 #define SDC_CS_PB0 1
 #define SDC_CS_PD7 0
 #if SDC_CS_PD7

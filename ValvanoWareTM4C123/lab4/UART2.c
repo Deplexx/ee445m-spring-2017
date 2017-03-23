@@ -29,10 +29,12 @@
 
 // U0Rx (VCP receive) connected to PA0
 // U0Tx (VCP transmit) connected to PA1
-#include "inc/tm4c123gh6pm.h"
+#include <stdint.h>
+
+#include "../inc/tm4c123gh6pm.h"
 #include "UART2.h"
 #include <string.h> 
-#include "OS.h"
+#include "os.h"
 
 #define NVIC_EN0_INT5           0x00000020  // Interrupt 5 enable
 #define NVIC_EN0_R              (*((volatile unsigned long *)0xE000E100))  // IRQ 0 to 31 Set Enable Register
@@ -581,3 +583,12 @@ void UART_Fix2(long number){
   UART_OutString(message);
 }
 
+inline void UART_OutCRLF(void) {
+  UART_OutChar(CR);
+  UART_OutChar(LF);
+}
+
+inline void UART_OutStringCRLF(char* s) {
+    UART_OutString(s);
+    UART_OutCRLF();
+}
