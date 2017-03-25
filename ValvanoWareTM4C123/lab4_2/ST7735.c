@@ -452,38 +452,48 @@ Sema4Type LCDFree;       // used for mutual exclusion
 // and then adds the data to the transmit FIFO.
 // NOTE: These functions will crash or stall indefinitely if
 // the SSI0 module is not initialized and enabled.
+
 void static writecommand(unsigned char c) {
   volatile uint32_t response;
                                         // wait until SSI0 not busy/transmit FIFO empty
+  long crit = StartCritical();
+  while((SSI0_SR_R&SSI_SR_TNF)==0){};
   while((SSI0_SR_R&SSI_SR_BSY)==SSI_SR_BSY){};
   SDC_CS = SDC_CS_HIGH;
   TFT_CS = TFT_CS_LOW;
   DC = DC_COMMAND;
+  
   SSI0_DR_R = c;                        // data out
   while((SSI0_SR_R&SSI_SR_RNE)==0){};   // wait until response
-  TFT_CS = TFT_CS_HIGH;
+  //TFT_CS = TFT_CS_HIGH;
   response = SSI0_DR_R;                 // acknowledge response
+  EndCritical(crit);
 }
 
 void static writedata(unsigned char c) {
   volatile uint32_t response;
                                         // wait until SSI0 not busy/transmit FIFO empty
+  long crit = StartCritical();
+  while((SSI0_SR_R&SSI_SR_TNF)==0){};
   while((SSI0_SR_R&SSI_SR_BSY)==SSI_SR_BSY){};
   SDC_CS = SDC_CS_HIGH;
   TFT_CS = TFT_CS_LOW;
   DC = DC_DATA;
+  
   SSI0_DR_R = c;                        // data out
   while((SSI0_SR_R&SSI_SR_RNE)==0){};   // wait until response
-  TFT_CS = TFT_CS_HIGH;
+  //TFT_CS = TFT_CS_HIGH;
   response = SSI0_DR_R;                 // acknowledge response
+  EndCritical(crit);
 }
+
 // Subroutine to wait 1 msec
 // Inputs: None
 // Outputs: None
 // Notes: ...
 void Delay1ms(unsigned long n){unsigned long volatile time;
   while(n){
-    time = 727240*2/91;  // 1msec
+    time = 72724*2/91;  // 1msec
     while(time){
 	  	time--;
     }
@@ -711,7 +721,7 @@ void static commonInit(const unsigned char *cmdList) {
 // Output: none
 void ST7735_InitB(void) {
   commonInit(Bcmd);
-  OS_InitSemaphore(&LCDFree,1);  // means LCD free
+  OS_InitSemaphore(&LCDFree,0);  // means LCD free
 }
 
 
@@ -737,7 +747,8 @@ void ST7735_InitR(enum initRFlags option) {
     writedata(0xC0);
   }
   TabColor = option;
-  OS_InitSemaphore(&LCDFree,1);  // means LCD free
+  ST7735_FillScreen(0);
+  OS_InitSemaphore(&LCDFree,0);  // means LCD free
 
 }
 
@@ -787,7 +798,8 @@ void ST7735_DrawPixel(short x, short y, unsigned short color) {
 
   if((x < 0) || (x >= _width) || (y < 0) || (y >= _height)) return;
 
-  setAddrWindow(x,y,x+1,y+1);
+//  setAddrWindow(x,y,x+1,y+1); // original code, bug???
+  setAddrWindow(x,y,x,y);
 
   pushColor(color);
 }
@@ -1032,6 +1044,8 @@ void ST7735_DrawCharS(short x, short y, char c, short textColor, short bgColor, 
 //        size      number of pixels per character pixel (e.g. size==2 prints each pixel of font as 2x2 square)
 // Output: none
 void ST7735_DrawChar(short x, short y, char c, short textColor, short bgColor, unsigned char size){
+  long crit = StartCritical();
+  
   unsigned char line; // horizontal row of pixels of character
   char col, row, i, j;// loop indices
   if(((x + 5*size - 1) >= _width)  || // Clip right
@@ -1068,6 +1082,8 @@ void ST7735_DrawChar(short x, short y, char c, short textColor, short bgColor, u
     }
     line = line<<1;   // move up to the next row
   }
+  
+  EndCritical(crit);
 }
 //------------ST7735_OutString------------
 // String draw function.  
@@ -1142,6 +1158,7 @@ void ST7735_OutUDec2(unsigned long n, unsigned long l){
 //        line    row from top, 0 to 7 for each device
 //        pt      pointer to a null terminated string to be printed
 //        value   signed integer to be printed
+/*
 void ST7735_Message (unsigned long d, unsigned long l, char *pt, long value){
   unsigned long sl = 8*d+l;
   OS_bWait(&LCDFree);
@@ -1149,6 +1166,62 @@ void ST7735_Message (unsigned long d, unsigned long l, char *pt, long value){
   ST7735_OutUDec2(value,sl);
   OS_bSignal(&LCDFree);
 }
+*/
+
+static void message(int device, int line, char *string, int value);
+
+void ST7735_Message(unsigned long d, unsigned long l, char *pt, long value) {
+  //OS_bWait(&LCDFree);
+  //long crit = StartCritical();
+  message(d, l, pt, value);
+  //EndCritical(crit);
+  //OS_bSignal(&LCDFree);
+}
+
+static void message(int device, int line, char *string, int value) {
+  int y, x, div;
+
+  if(device>1 || device<0) return;
+  if(line>7 || line<0) return;
+
+  x=0;
+  y = (device ? 80:0) + line*10;
+  div = 1;
+  uint16_t textColor = device ? ST7735_GREEN : ST7735_BLACK;
+  uint16_t bgColor = device ? ST7735_BLUE : ST7735_YELLOW;
+
+  while(*string){
+    ST7735_DrawChar(x*6, y, *string, textColor, bgColor, 1);
+    string++;
+    x = x+1;
+    if(x>20) return;
+  }
+  x++;
+
+  if(value==0){
+    ST7735_DrawChar(x*6, y, '0', textColor, bgColor, 1);
+    return;
+  } else if(value<0) {
+    ST7735_DrawChar(x*6, y, '-', textColor, bgColor, 1);
+    value = 0-value;
+    x++;
+  }
+
+  while(div<=value){
+    div = div*10;
+  }
+
+  while(div>1){
+    div = div/10;
+    char outchar = value/div + '0';
+    value = value%div;
+        ST7735_DrawChar(x*6, y, outchar, textColor, bgColor, 1);
+        x++;
+  }
+  
+  //ST7735_FillRect(x*6, y-1, 160-x, 10, bgColor);
+}
+
 
 
 #define MADCTL_MY  0x80

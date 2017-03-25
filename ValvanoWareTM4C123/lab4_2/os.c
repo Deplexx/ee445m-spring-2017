@@ -14,6 +14,7 @@
 #include "os.h"
 #include "PLL.h"
 #include "UART2.h"
+#include "edisk.h"
 
 #define NVIC_ST_CTRL_R          (*((volatile uint32_t *)0xE000E010))
 #define NVIC_ST_CTRL_CLK_SRC    0x00000004  // Clock Source
@@ -107,7 +108,9 @@ static unsigned int fifoLost;
 
 /* MAILBOX */
 static Sema4Type mailPost;
-static unsigned long mail;
+static Sema4Type mailRecv;
+static Sema4Type mailLock;
+static unsigned long Mail;
 static unsigned int mailLost;
 
 static void PortB_Init(void);
@@ -374,6 +377,7 @@ void Timer4A_Handler(void){
   TIMER4_ICR_R = TIMER_ICR_TATOCINT; //acknowledge interrupt
   int32_t status; status = StartCritical();
   sysTime++;
+  //disk_timerproc();
   
   #if DEBUG
   MasterTime++;
@@ -655,27 +659,29 @@ long OS_Fifo_Size(void) {
 }
 
 void OS_MailBox_Init(void) {
-  OS_InitSemaphore(&mailPost, -1);
-  mailLost = 0;
+    OS_InitSemaphore(&mailPost, -1);
+    OS_InitSemaphore(&mailRecv, 0);
+    OS_InitSemaphore(&mailLock, 0);
 }
 
 void OS_MailBox_Send(unsigned long data) {
-  volatile long sav;
-  sav = StartCritical();
-  if(mailPost.Value == 0){
-    mailLost++;
-  } else {
-    mail = data;
+    OS_bWait(&mailRecv);
+    OS_bWait(&mailLock);
+    Mail = data;
+    OS_bSignal(&mailLock);
     OS_bSignal(&mailPost);
-  }
-  EndCritical(sav);
 }
 
 unsigned long OS_MailBox_Recv(void) {
-  unsigned long ret;
-  OS_bWait(&mailPost);
-  ret = mail;
-  return ret;
+    unsigned long ret;
+
+    OS_bWait(&mailPost);
+    OS_bWait(&mailLock);
+    ret = Mail;
+    OS_bSignal(&mailLock);
+    OS_bSignal(&mailRecv);
+
+    return ret;
 }
 
 // ******** OS_Time ************
@@ -746,24 +752,28 @@ unsigned long OS_MsTime(void){
 }
 
 void OS_bWait(Sema4Type *sema) {
-  OS_DisableInterrupts();
+  long crit = StartCritical();
+  //OS_DisableInterrupts();
   if(sema->Value < 0)
     BlockThread(sema);
   else
     sema->Value = -1;
-  OS_EnableInterrupts();
+  //OS_EnableInterrupts();
+  EndCritical(crit);
 }
 
 void OS_Wait(Sema4Type *sema) {
-  OS_DisableInterrupts();
+  //OS_DisableInterrupts();
+  long crit = StartCritical();
   --sema->Value;
   if(sema->Value < 0)
     BlockThread(sema);
-  OS_EnableInterrupts();
+  //OS_EnableInterrupts();
+  EndCritical(crit);
 }
 
 void BlockThread(Sema4Type *sema) {
-  OS_DisableInterrupts();
+  //OS_DisableInterrupts();
   tcbType *t = sema->next;
   if(t) {
     while(t->bNext)
@@ -775,11 +785,12 @@ void BlockThread(Sema4Type *sema) {
   RunPt->bNext = 0;
   //2 trigger pendsv
   NVIC_INT_CTRL_R |= 0x10000000;
-  OS_EnableInterrupts();
+  //OS_EnableInterrupts();
 }
 
 void OS_bSignal(Sema4Type *semaPt) {
-  OS_DisableInterrupts();
+  long crit = StartCritical();
+  //OS_DisableInterrupts();
   tcbType *t = semaPt->next;
   if(t != NULL) {
     semaPt->next = semaPt->next->bNext;
@@ -789,11 +800,13 @@ void OS_bSignal(Sema4Type *semaPt) {
     semaPt->Value = 0;
   //2 trigger pendsv
   NVIC_INT_CTRL_R |= 0x10000000;
-  OS_EnableInterrupts();
+  //OS_EnableInterrupts();
+  EndCritical(crit);
 }
 
 void OS_Signal(Sema4Type *semaPt) {
-  OS_DisableInterrupts();
+  //OS_DisableInterrupts();
+  long crit = StartCritical();
   ++semaPt->Value;
   tcbType *t = semaPt->next;
   if(t != NULL) {
@@ -803,27 +816,8 @@ void OS_Signal(Sema4Type *semaPt) {
   }
   //2 trigger pendsv
   NVIC_INT_CTRL_R |= 0x10000000;
-  OS_EnableInterrupts();
-}
-
-void setNextThread(void){
-  tcbType *t = RunPt->next;
-  tcbType *next = t;
-  int pri = 999999;
-  while(t != RunPt){
-    //check for sleep or block
-    if(t->blocked == 1) {t = t->next; continue;}
-    if(t->sleep > 0)    {t = t->next; continue;}
-    if(t->pri < pri){
-      pri = t->pri;
-      next = t;
-    }
-    t = t->next;
-  }
-  //final comparison to current RunPt
-  //round robin if equal priority
-  if(next->pri <= RunPt->pri)
-    RunPt = next;
+  //OS_EnableInterrupts();
+  EndCritical(crit);
 }
 
 #if DEBUG
