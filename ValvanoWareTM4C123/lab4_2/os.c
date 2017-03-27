@@ -2,6 +2,8 @@
 // Dung Nguyen & Nico Cortes
 // Mar 25 2017
 
+#pragma import(__use_no_semihosting)
+
 #include <stdbool.h>
 #include <stdint.h>
 #include <stdio.h>
@@ -25,6 +27,9 @@
 #define NVIC_INT_CTRL_R         (*((volatile uint32_t *)0xE000ED04))
 #define NVIC_INT_CTRL_PENDSTSET 0x04000000  // Set pending SysTick interrupt
 #define NVIC_SYS_PRI3_R         (*((volatile uint32_t *)0xE000ED20))  // Sys. Handlers 12 to 15 Priority
+
+#define TRIGGER_SYSTICK()       (NVIC_INT_CTRL_R |= 0x04000000)
+#define TRIGGER_PENDSV()        (NVIC_INT_CTRL_R |= 0x10000000)
 
 // function definitions in osasm.s
 void DisableInterrupts(void); // Disable interrupts
@@ -88,10 +93,6 @@ void addTInfo(enum tEvent e) {
 
 //"bootstraps" the next pointer for context switch
 tcbType dummyTcb;
-//similar to dummyTcb
-tcbType sleepyHead;
-tcbType sleepyTail;
-
 tcbType *runHead = 0;
 tcbType *runTail = 0;
 
@@ -115,7 +116,9 @@ static unsigned int mailLost;
 
 static void PortB_Init(void);
 
+/* SEMAPHORES */
 void BlockThread(Sema4Type *sema);
+void UnblockThread(Sema4Type *sema);
 
 void InitAllTCBs(void){
   for(int k=0; k<MAXTHREADS; k++){
@@ -126,15 +129,6 @@ void InitAllTCBs(void){
     tcbs[k].sleep = 0;
     tcbs[k].active = 0;
   }
-}
-
-void InitSleepTCB(void){
-  sleepyHead.id = 0xBEA7BEEF;
-  sleepyTail.id = 0xBAADDEED;
-  sleepyHead.prev = 0;
-  sleepyHead.next = &sleepyTail;
-  sleepyTail.prev = &sleepyHead;
-  sleepyTail.next = 0;
 }
 
 void OS_InitSysTimer(void){
@@ -165,26 +159,7 @@ static void PortB_Init(void) {
   GPIO_PORTB_AMSEL_R &= ~0x0F;;      // disable analog functionality on PB
 }
 
-// ******** OS_Init ************
-// initialize operating system, disable interrupts until OS_Launch
-// initialize OS controlled I/O: systick, 50 MHz PLL
-// input:  none
-// output: none
-void OS_Init(void){
-  OS_DisableInterrupts();
-  PLL_Init(Bus80MHz);         // set processor clock to 50 MHz
-  InitAllTCBs();
-  InitSleepTCB();
-  OS_InitSysTimer();
-  
-  //LED_Init();
-  UART_Init();
-  
-  #if DEBUG
-  Jitter_Init();
-  PortB_Init();
-  #endif
-  
+static void PortF_Init(void) {
   //Initialize PORTF for LEDs and Switches
   SYSCTL_RCGCGPIO_R |= 0x00000020;  // 1) activate clock for Port F
   volatile int delay = SYSCTL_RCGCGPIO_R;        // allow time for clock to start
@@ -210,9 +185,26 @@ void OS_Init(void){
   NVIC_ST_CURRENT_R = 0;      // any write to current clears it
   //NVIC_SYS_PRI3_R =(NVIC_SYS_PRI3_R&0x00FFFFFF)|0xE0000000; // priority 7
   NVIC_SYS_PRI3_R = (NVIC_SYS_PRI3_R&0x0000FFFF)|0xE0C00000; //set both systick and pendsv to pri 7
-  
   //PF vector 46, interrupt bit 30
   NVIC_PRI7_R = (NVIC_PRI7_R&0xFF00FFFF)|0x00A00000; // priority 5 
+}
+
+// ******** OS_Init ************
+// initialize operating system, disable interrupts until OS_Launch
+// initialize OS controlled I/O: systick, 50 MHz PLL
+// input:  none
+// output: none
+void OS_Init(void){
+  OS_DisableInterrupts();
+  PLL_Init(Bus80MHz);         // set processor clock to 50 MHz
+  InitAllTCBs();
+  OS_InitSysTimer();
+  UART_Init();
+  PortF_Init();
+  #if DEBUG
+  Jitter_Init();
+  PortB_Init();
+  #endif
 }
 
 void SetInitialStack(int i){
@@ -359,7 +351,6 @@ void OS_Kill(void){
 // You are free to select the time resolution for this function
 // OS_Sleep(0) implements cooperative multitasking
 void OS_Sleep(unsigned long sleepTime){
-  //int32_t status; status = StartCritical();
   OS_DisableInterrupts();
   //check if sleeptime > 0 and not running single thread
   if(sleepTime > 0 && RunPt->next != RunPt){
@@ -367,30 +358,23 @@ void OS_Sleep(unsigned long sleepTime){
     thisTcb->sleep = sleepTime;
   }
   
-  //trigger pendsv, contex switch
-  NVIC_INT_CTRL_R |= 0x10000000;
+  TRIGGER_PENDSV();
   OS_EnableInterrupts();
-  //EndCritical(status);
 }
 
 void Timer4A_Handler(void){
   TIMER4_ICR_R = TIMER_ICR_TATOCINT; //acknowledge interrupt
   int32_t status; status = StartCritical();
   sysTime++;
-  //disk_timerproc();
-  
   #if DEBUG
   MasterTime++;
   #endif
-  
   tcbType *t;
   for(t = RunPt; t->next != RunPt; t = t->next)
       if(t->sleep > 0)
           t->sleep--;
-
   if(t->sleep > 0)
       t->sleep--;
-  
   EndCritical(status);
 }
 
@@ -754,10 +738,10 @@ unsigned long OS_MsTime(void){
 void OS_bWait(Sema4Type *sema) {
   long crit = StartCritical();
   //OS_DisableInterrupts();
-  if(sema->Value < 0)
+  if(sema->Value < 0){
     BlockThread(sema);
-  else
-    sema->Value = -1;
+  }
+  sema->Value = -1;
   //OS_EnableInterrupts();
   EndCritical(crit);
 }
@@ -765,9 +749,11 @@ void OS_bWait(Sema4Type *sema) {
 void OS_Wait(Sema4Type *sema) {
   //OS_DisableInterrupts();
   long crit = StartCritical();
-  --sema->Value;
-  if(sema->Value < 0)
+  if(sema->Value < 0){
     BlockThread(sema);
+  } else {
+    sema->Value--;
+  }
   //OS_EnableInterrupts();
   EndCritical(crit);
 }
@@ -777,47 +763,55 @@ void BlockThread(Sema4Type *sema) {
   tcbType *t = sema->next;
   if(t) {
     while(t->bNext)
-    t = t->bNext;
+      t = t->bNext;
     t->bNext = RunPt;
-  } else
+  } else {
     sema->next = RunPt;
+  }
   RunPt->blocked = 1;
   RunPt->bNext = 0;
-  //2 trigger pendsv
-  NVIC_INT_CTRL_R |= 0x10000000;
+  TRIGGER_PENDSV();
   //OS_EnableInterrupts();
 }
 
 void OS_bSignal(Sema4Type *semaPt) {
   long crit = StartCritical();
-  //OS_DisableInterrupts();
   tcbType *t = semaPt->next;
   if(t != NULL) {
     semaPt->next = semaPt->next->bNext;
-    t->bNext = NULL;
+    t->bNext = 0;
     t->blocked = 0;
-  } else
+    semaPt->Value = -1;
+  } else {
     semaPt->Value = 0;
-  //2 trigger pendsv
-  NVIC_INT_CTRL_R |= 0x10000000;
-  //OS_EnableInterrupts();
+  }
+  TRIGGER_PENDSV();
   EndCritical(crit);
 }
 
 void OS_Signal(Sema4Type *semaPt) {
-  //OS_DisableInterrupts();
   long crit = StartCritical();
-  ++semaPt->Value;
   tcbType *t = semaPt->next;
   if(t != NULL) {
     semaPt->next = semaPt->next->bNext;
-    t->bNext = NULL;
+    t->bNext = 0;
     t->blocked = 0;
+  } else {
+    semaPt->Value++;
   }
-  //2 trigger pendsv
-  NVIC_INT_CTRL_R |= 0x10000000;
-  //OS_EnableInterrupts();
+  TRIGGER_PENDSV();
   EndCritical(crit);
+}
+
+void UnblockThread(Sema4Type *semaPt) {
+  tcbType *t = semaPt->next;
+  if(t != NULL) {
+    semaPt->next = semaPt->next->bNext;
+    t->bNext = 0;
+    t->blocked = 0;
+  } else {
+    semaPt->Value++;
+  }
 }
 
 #if DEBUG

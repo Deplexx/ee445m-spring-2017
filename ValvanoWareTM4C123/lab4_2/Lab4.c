@@ -410,9 +410,12 @@ void SW1Push1(void){
 //******************* test main1 **********
 // SYSTICK interrupts, period established by OS_Launch
 // Timer interrupts, period established by first call to OS_AddPeriodicThread
-int testmain1(void){   // testmain1
+int main(void){   // testmain1
   OS_Init();           // initialize, disable interrupts
   PortD_Init();
+  ST7735_InitR(INITR_REDTAB);
+  //eDisk_Init(0);
+  
 //*******attach background tasks***********
   OS_AddPeriodicThread(&disk_timerproc,10*TIME_1MS,0);   // time out routines for disk
   OS_AddSW1Task(&SW1Push1,2);
