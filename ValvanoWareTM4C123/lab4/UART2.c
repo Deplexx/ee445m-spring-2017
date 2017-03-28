@@ -26,10 +26,10 @@
  http://users.ece.utexas.edu/~valvano/
  */
 
-
 // U0Rx (VCP receive) connected to PA0
 // U0Tx (VCP transmit) connected to PA1
 #include <stdint.h>
+#include <stdarg.h>
 
 #include "../inc/tm4c123gh6pm.h"
 #include "UART2.h"
@@ -99,7 +99,7 @@ Sema4Type TxRoomLeft;   // Semaphore counting empty spaces in TxFifo
 void TxFifo_Init(void){ // this is critical
   // should make atomic
   TxPutPt = TxGetPt = &TxFifo[0]; // Empty
-  OS_InitSemaphore(&TxRoomLeft, TXFIFOSIZE-1);  // Initially lots of spaces 
+  OS_InitSemaphore(&TxRoomLeft, TXFIFOSIZE-1);  // Initially lots of spaces
   // end of critical section
 }
 
@@ -172,6 +172,10 @@ unsigned int RxFifo_Size(void){
 //  return RxFifoAvailable.Value;
 }
 
+#define UART_BUF_SIZ 512
+
+
+
 // Initialize UART0
 // Baud rate is 115200 bits/sec
 void UART_Init(void){
@@ -199,7 +203,6 @@ void UART_Init(void){
                                         // UART0=priority 2
   NVIC_PRI1_R = (NVIC_PRI1_R&0xFFFF00FF)|0x00004000; // bits 13-15
   NVIC_EN0_R = NVIC_EN0_INT5;           // enable interrupt 5 in NVIC
-  EnableInterrupts();
 }
 // copy from hardware RX FIFO to software RX FIFO
 // stop when hardware RX FIFO is empty or software RX FIFO is full

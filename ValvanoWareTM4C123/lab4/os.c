@@ -37,6 +37,7 @@
 #include "os.h"
 #include "PLL.h"
 #include "UART2.h"
+#include "../utils/uartstdio.h"
 
 #define NVIC_ST_CTRL_R          (*((volatile uint32_t *)0xE000E010))
 #define NVIC_ST_CTRL_CLK_SRC    0x00000004  // Clock Source
@@ -210,6 +211,7 @@ void OS_Init(void){
   
   //LED_Init();
   UART_Init();
+  //UARTStdioConfig(0, 115200, 80000000);
   Jitter_Init();
   
   //Initialize PORTF for LEDs and Switches
@@ -816,6 +818,22 @@ void OS_ClearMsTime(void){
   //CountTimeSlice = 0;
   sysTime = 0;
   EndCritical(status);
+}
+
+int32_t OS_GetOpenedFile(void) {
+    return RunPt->opnd_fil;
+}
+
+void OS_SetOpenedFile(int fd) {
+    RunPt->opnd_fil = fd;
+}
+
+int32_t OS_GetCurByte(void) {
+    return RunPt->cur_byte;
+}
+
+void OS_SetCurByte(int byte) {
+    RunPt->cur_byte = byte;
 }
 
 int OS_MaxTimeIntsDisabled(void) {

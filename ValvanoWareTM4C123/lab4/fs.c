@@ -1,4 +1,8 @@
+/*
+
 //p-code for fs impl
+
+#include <string.h>
 
 #include "os.h"
 
@@ -18,12 +22,12 @@ struct inode {
 };
 
 struct mem_inode {
-    struct inode *inod;
+    struct inode inod;
     int fd;
     int opnrs;
     int rdrs;    
-    Sema4Type const rlok;
-    Sema4Type const wlok;
+    Sema4Type rlok;
+    Sema4Type wlok;
 };
 
 #define MAX_OPND 10
@@ -38,6 +42,8 @@ int fs_init(void) {
     OS_InitSemaphore(&fs_lok, 1);
     for(int i = 0; i < MAX_OPND; ++i)
         inods[i].fd = -1;
+
+    return 0;
 }
 
 int fs_fopn(const char *nam) {
@@ -49,19 +55,19 @@ int fs_fopn(const char *nam) {
         goto finally;
     } else {
         for(int i = 0; i < MAX_OPND; ++i)
-            if(strcmp(inods[i], nam) == 0) {
+            if(strcmp(inods[i].inod.nam, nam) == 0) {
                 ++inods[i].opnrs;
                 ret = inods[i].fd;
                 goto finally;
             }        
         struct mem_inode cur = inods[opnd_ctr++];
         
-        cur.inod = disk_open(nam);
+        cur.inod = get_file(nam);
         ret = cur.fd = fd_ctr++;
         cur.opnrs = 1;
         cur.rdrs = 0;
-        OS_SemaphoreInit(&cur.rlok, 1);
-        OS_SemaphoreInit(&cur.wlok, 1);
+        OS_InitSemaphore(&cur.rlok, 1);
+        OS_InitSemaphore(&cur.wlok, 1);
     }    
     finally:
         OS_bSignal(&fs_lok);
@@ -102,7 +108,7 @@ int fs_fread(int fd, char *buf, int off, int siz) {
     OS_bSignal(&cur.rlok);
     
     //read logic
-    int dat;
+    int dat = 0;
     
     OS_bWait(&cur.rlok);
     if(--cur.rdrs == 0)
@@ -121,3 +127,4 @@ int fs_fwrite(int fd, char *buf, int off, int size) {
     
     OS_bSignal(&cur.wlok);
 }
+*/

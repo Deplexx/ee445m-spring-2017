@@ -46,9 +46,9 @@
 // CS   - PA3 TFT_CS, active low to enable TFT
 // *CS  - PD7/PB0 SDC_CS, active low to enable SDC
 // MISO - PA4 MISO SPI data from SDC to microcontroller
-// SDA  – (NC) I2C data for ADXL345 accelerometer
-// SCL  – (NC) I2C clock for ADXL345 accelerometer
-// SDO  – (NC) I2C alternate address for ADXL345 accelerometer
+// SDA  ï¿½ (NC) I2C data for ADXL345 accelerometer
+// SCL  ï¿½ (NC) I2C clock for ADXL345 accelerometer
+// SDO  ï¿½ (NC) I2C alternate address for ADXL345 accelerometer
 // Backlight + - Light, backlight connected to +3.3 V
 #include <stdint.h>
 #include "../inc/tm4c123gh6pm.h"
@@ -613,6 +613,7 @@ DRESULT eDisk_WriteBlock (
 //          cmd,   Control command code 
 //          buff   Pointer to the control data 
 // Outputs: status (see DRESULT)
+#define _USE_IOCTL 1
 #if _USE_IOCTL
 DRESULT disk_ioctl(BYTE drv, BYTE cmd, void *buff){
   DRESULT res;

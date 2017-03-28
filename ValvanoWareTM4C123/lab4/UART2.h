@@ -42,7 +42,6 @@
 #define SP   0x20
 #define DEL  0x7F
 
-
 /**
  * @details  Initialize the UART using interrupts
  * @note 115,200 baud rate (assuming 80 MHz clock)<br>

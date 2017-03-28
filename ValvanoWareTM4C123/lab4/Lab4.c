@@ -79,12 +79,17 @@
 #include "UART2.h"
 #include "edisk.h"
 #include "efile.h"
-#include <string.h> 
-#include <stdio.h>
+#include <string.h>
 #include <stdint.h>
+#include <stdio.h>
 
 //*********Prototype for FFT in cr4_fft_64_stm32.s, STMicroelectronics
 void cr4_fft_64_stm32(void *pssOUT, void *pssIN, unsigned short Nbin);
+
+int printf(const char *format, ...) {
+    UART_OutString((char*) format);
+    return 0;
+}
 
 #define PF0  (*((volatile unsigned long *)0x40025004))
 #define PF1  (*((volatile unsigned long *)0x40025008))
@@ -180,7 +185,7 @@ char Name[8]="robot0";
 // foreground thread, accepts data from producer
 // inputs:  none
 // outputs: none
-void Robot(void){   
+void Robot(void){
 unsigned long data;      // ADC sample, 0 to 1023
 unsigned long voltage;   // in mV,      0 to 3300
 unsigned long distance;  // in mm,      100 to 800
@@ -272,8 +277,9 @@ extern void Interpreter(void);
 // execute   eFile_Init();  after periodic interrupts have started
 
 //*******************lab 4 main **********
-int main(void){        // lab 4 real main
+int notmain(void){        // lab 4 real main
   OS_Init();           // initialize, disable interrupts
+  ST7735_InitR(INITR_REDTAB);
   Running = 0;         // robot not running
   DataLost = 0;        // lost data between producer and consumer
   NumSamples = 0;
@@ -409,8 +415,9 @@ void SW1Push1(void){
 //******************* test main1 **********
 // SYSTICK interrupts, period established by OS_Launch
 // Timer interrupts, period established by first call to OS_AddPeriodicThread
-int testmain1(void){   // testmain1
+int main(void){   // testmain1
   OS_Init();           // initialize, disable interrupts
+  ST7735_InitR(INITR_REDTAB);
   PortD_Init();
 //*******attach background tasks***********
   OS_AddPeriodicThread(&disk_timerproc,10*TIME_1MS,0);   // time out routines for disk

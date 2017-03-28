@@ -150,7 +150,7 @@ static void adc_runComm(const char *comm) {
 }
 
 static void os_runComm(const char *comm) {
-    char *currTok = strtok(comm, " \t");
+    char *currTok = strtok((char*) comm, " \t");
 
     if(strcmp((const char*) currTok, "ints") == 0) {
 #if DEBUG
@@ -215,20 +215,20 @@ static void lcd_runComm(const char *comm) {
 }
 
 static void fs_runComm(const char *comm) {
-    char *currTok = strtok(comm, " \t");
+    char *currTok = strtok((char*) comm, " \t");
 
     if(strcmp(currTok, "format") == 0)
         eFile_Format();
     else if(strcmp(currTok, "mkdir") == 0) {
         eFile_Format();
     } else if(strcmp(currTok, "creat") == 0) {
-        char *name = strtok(comm, " \t");
+        char *name = strtok((char*) comm, " \t");
         eFile_Create(name);
     } else if(strcmp(currTok, "open") == 0) {
-        char *name = strtok(comm, " \t");
+        char *name = strtok((char*) comm, " \t");
         eFile_ROpen(name);
     } else if(strcmp(currTok, "close") == 0) {
-        char *name = strtok(comm, " \t");
+        char *name = strtok((char*) comm, " \t");
         eFile_Close();
     }
 }

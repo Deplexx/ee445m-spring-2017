@@ -29,7 +29,7 @@
 #include <stdint.h>
 
 //debug flag; set to 0 to undefine some useful (but slow) debug info
-#define DEBUG 0
+#define DEBUG 1
 
 #if DEBUG
 enum tEvent {
@@ -70,6 +70,8 @@ typedef struct tcb{
   int32_t pri;
   int32_t blocked;
   struct tcb *bNext;
+  int32_t opnd_fil;
+  int32_t cur_byte;
 } tcbType;
 
 // feel free to change the type of semaphore, there are lots of good solutions
@@ -313,6 +315,12 @@ void OS_ClearMsTime(void);
 // You are free to select the time resolution for this function
 // It is ok to make the resolution to match the first call to OS_AddPeriodicThread
 unsigned long OS_MsTime(void);
+
+int32_t OS_GetOpenedFile(void);
+void OS_SetOpenedFile(int fd);
+
+int32_t OS_GetCurByte(void);
+void OS_SetCurByte(int byte);
 
 int OS_MaxTimeIntsDisabled(void);
 int OS_TimeIntsDisabled(void);
