@@ -139,7 +139,7 @@ Sema4Type RxFifoAvailable;   // Semaphore counting data in RxFifo
 void RxFifo_Init(void){ // this is critical
   // should make atomic
   RxPutPt = RxGetPt = &RxFifo[0]; // Empty
-  OS_InitSemaphore(&RxFifoAvailable, 0);  // Initially empty 
+  OS_InitSemaphore(&RxFifoAvailable, -1);  // Initially empty
   // end of critical section
 }
 int RxFifo_Put(dataType data){

@@ -61,6 +61,7 @@ void Interpreter(void) {
 
   //PLL_Init(Bus80MHz);       // set system clock to 50 MHz
   //UART_Init();              // initialize UART
+  eFile_Init();
   
   while(true) {
     UART_OutString("> ");
@@ -84,6 +85,8 @@ void Interpreter(void) {
       os_runComm(strtok(NULL, " \t"));
     else if(strcmp((const char*) currTok, "lcd") == 0)
       lcd_runComm(strtok(NULL, " \t"));
+    else if(strcmp((const char*) currTok, "fs") == 0)
+      fs_runComm(strtok(NULL, " \t"));
     else if(strcmp((const char*) currTok, "") != 0)
       UART_OutStringCRLF("Command not found. Enter \"quit\" to quit.");
   }
@@ -219,8 +222,8 @@ static void fs_runComm(const char *comm) {
 
     if(strcmp(currTok, "format") == 0)
         eFile_Format();
-    else if(strcmp(currTok, "mkdir") == 0) {
-        eFile_Format();
+    else if(strcmp(currTok, "ls") == 0) {
+        eFile_Directory(&UART_OutString);
     } else if(strcmp(currTok, "creat") == 0) {
         char *name = strtok((char*) comm, " \t");
         eFile_Create(name);

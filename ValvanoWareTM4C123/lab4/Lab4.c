@@ -479,7 +479,7 @@ void SW1Push2(void){
 //******************* test main2 **********
 // SYSTICK interrupts, period established by OS_Launch
 // Timer interrupts, period established by first call to OS_AddPeriodicThread
-int main(void){
+int Testmain2(void){
   OS_Init();           // initialize, disable interrupts
   ST7735_InitR(INITR_REDTAB);
   PortD_Init();
@@ -494,6 +494,25 @@ int main(void){
   NumCreated += OS_AddThread(&TestFile,128,1);  
   NumCreated += OS_AddThread(&IdleTask,128,3); 
  
+  OS_Launch(10*TIME_1MS); // doesn't return, interrupts enabled in here
+  return 0;               // this never executes
+}
+
+int main(void){
+  OS_Init();           // initialize, disable interrupts
+  ST7735_InitR(INITR_REDTAB);
+  PortD_Init();
+  Running = 1;
+
+//*******attach background tasks***********
+  OS_AddPeriodicThread(&disk_timerproc,10*TIME_1MS,0);   // time out routines for disk
+  OS_AddSW1Task(&SW1Push1,2);    // PF4, SW1
+  OS_AddSW2Task(&SW1Push2,2);    // PF0, SW2
+  NumCreated = 0 ;
+// create initial foreground threads
+  NumCreated += OS_AddThread(&Interpreter,128,1);
+  NumCreated += OS_AddThread(&IdleTask,128,3);
+
   OS_Launch(10*TIME_1MS); // doesn't return, interrupts enabled in here
   return 0;               // this never executes
 }
