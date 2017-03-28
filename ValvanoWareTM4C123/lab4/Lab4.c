@@ -415,7 +415,7 @@ void SW1Push1(void){
 //******************* test main1 **********
 // SYSTICK interrupts, period established by OS_Launch
 // Timer interrupts, period established by first call to OS_AddPeriodicThread
-int main(void){   // testmain1
+int Testmain1(void){   // testmain1
   OS_Init();           // initialize, disable interrupts
   ST7735_InitR(INITR_REDTAB);
   PortD_Init();
@@ -442,7 +442,7 @@ void TestFile(void){   int i; char data;
   // simple test of eFile
   if(eFile_Init())              diskError("eFile_Init",0); 
   if(eFile_Format())            diskError("eFile_Format",0); 
-  eFile_Directory(&UART_OutChar);
+  eFile_Directory(&UART_OutString);
   if(eFile_Create("file1"))     diskError("eFile_Create",0);
   if(eFile_WOpen("file1"))      diskError("eFile_WOpen",0);
   for(i=0;i<1000;i++){
@@ -453,14 +453,14 @@ void TestFile(void){   int i; char data;
     }
   }
   if(eFile_WClose())            diskError("eFile_WClose",0);
-  eFile_Directory(&UART_OutChar);
+  eFile_Directory(&UART_OutString);
   if(eFile_ROpen("file1"))      diskError("eFile_ROpen",0);
   for(i=0;i<1000;i++){
     if(eFile_ReadNext(&data))   diskError("eFile_ReadNext",i);
     UART_OutChar(data);
   }
   if(eFile_Delete("file1"))     diskError("eFile_Delete",0);
-  eFile_Directory(&UART_OutChar);
+  eFile_Directory(&UART_OutString);
   if(eFile_Close())             diskError("eFile_Close",0);
   printf("Successful test of creating a file\n\r");
   ST7735_OutString(0, 1, "eFile successful", ST7735_YELLOW);
@@ -479,8 +479,9 @@ void SW1Push2(void){
 //******************* test main2 **********
 // SYSTICK interrupts, period established by OS_Launch
 // Timer interrupts, period established by first call to OS_AddPeriodicThread
-int testmain2(void){ 
+int main(void){
   OS_Init();           // initialize, disable interrupts
+  ST7735_InitR(INITR_REDTAB);
   PortD_Init();
   Running = 1; 
 

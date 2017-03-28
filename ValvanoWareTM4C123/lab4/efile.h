@@ -105,7 +105,7 @@ int eFile_RClose(void); // close the file for writing
  * @return 0 if successful and 1 on failure (e.g., trouble reading from flash)
  * @brief  Show directory
  */
-int eFile_Directory(void(*fp)(char));
+int eFile_Directory(void(*fp)(char*));
 
 /**
  * @details Delete the file with this name, recover blocks so they can be used by another file
