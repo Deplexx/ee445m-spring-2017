@@ -23,8 +23,6 @@
  http://users.ece.utexas.edu/~valvano/
  */
 
-#include <stdint.h>
-
 #ifndef _UART_H_
 #define _UART_H_
 

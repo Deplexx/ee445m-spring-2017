@@ -76,7 +76,7 @@
 #include "../inc/tm4c123gh6pm.h"
 #include "ST7735.h"
 #include "ADC.h"
-#include "UART2.h"
+#include "../lab3/UART.h"
 #include "edisk.h"
 #include "efile.h"
 #include <string.h>

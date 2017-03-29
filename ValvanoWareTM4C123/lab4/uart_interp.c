@@ -36,11 +36,12 @@
 #include "os.h"
 #include "PLL.h"
 #include "ST7735.h"
-#include "UART2.h"
+#include "../lab3/UART.h"
 #include "uart_interp.h"
 
 #define IN_BUFF_SIZE 256
 char inBuff[IN_BUFF_SIZE];
+char cmdLine[10][30];
 
 #define TEST_BUFF_SIZE 256
 uint16_t adcBuff[TEST_BUFF_SIZE];
@@ -66,6 +67,9 @@ void Interpreter(void) {
   while(true) {
     UART_OutString("> ");
     UART_InString(inBuff, IN_BUFF_SIZE);
+    strcpy(cmdLine[0], strtok(inBuff, " \t"));
+    for(int i = 1; i < 10; ++i)
+        strcpy(cmdLine[i], strtok(NULL, " \t"));
 
     UART_OutCRLF();
 
@@ -85,8 +89,8 @@ void Interpreter(void) {
       os_runComm(strtok(NULL, " \t"));
     else if(strcmp((const char*) currTok, "lcd") == 0)
       lcd_runComm(strtok(NULL, " \t"));
-    else if(strcmp((const char*) currTok, "fs") == 0)
-      fs_runComm(strtok(NULL, " \t"));
+    else if(strcmp(cmdLine[0], "fs") == 0)
+      fs_runComm(NULL);
     else if(strcmp((const char*) currTok, "") != 0)
       UART_OutStringCRLF("Command not found. Enter \"quit\" to quit.");
   }
@@ -218,20 +222,39 @@ static void lcd_runComm(const char *comm) {
 }
 
 static void fs_runComm(const char *comm) {
-    char *currTok = strtok((char*) comm, " \t");
+    char *currTok = cmdLine[1];
 
     if(strcmp(currTok, "format") == 0)
         eFile_Format();
     else if(strcmp(currTok, "ls") == 0) {
         eFile_Directory(&UART_OutString);
     } else if(strcmp(currTok, "creat") == 0) {
-        char *name = strtok((char*) comm, " \t");
+        char *name = cmdLine[2];
         eFile_Create(name);
-    } else if(strcmp(currTok, "open") == 0) {
-        char *name = strtok((char*) comm, " \t");
+    } else if(strcmp(currTok, "ropen") == 0) {
+        char *name = cmdLine[2];
         eFile_ROpen(name);
-    } else if(strcmp(currTok, "close") == 0) {
-        char *name = strtok((char*) comm, " \t");
-        eFile_Close();
+    } else if(strcmp(currTok, "rclose") == 0) {
+        eFile_RClose();
+    } else if(strcmp(currTok, "cat") == 0) {
+        char c;
+        int err = eFile_ReadNext(&c);
+        while(err == 0) {
+          UART_OutChar(c);
+          err = eFile_ReadNext(&c);
+        }
+        UART_OutCRLF();
+    } else if(strcmp(currTok, "rm") == 0) {
+        char *name = cmdLine[2];
+        eFile_Delete(name);
+    } else if(strcmp(currTok, "wopen") == 0) {
+        char *name = cmdLine[2];
+        eFile_WOpen(name);
+    } else if(strcmp(currTok, "wclose") == 0) {
+        eFile_WClose();
+    } else if(strcmp(currTok, "write") == 0) {
+        char *str = cmdLine[2];
+        for(int i = 0; i < strlen(str); ++i)
+            eFile_Write(str[i]);
     }
 }

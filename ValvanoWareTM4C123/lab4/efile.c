@@ -5,7 +5,7 @@
 #include <string.h>
 #include "edisk.h"
 #include "efile.h"
-#include "UART2.h"
+#include "../lab3/UART.h"
 #include <stdio.h>
 #include <stdlib.h>
 
@@ -83,6 +83,7 @@ int eFile_Init(void){ // initialize file system
     eDisk_ReadBlock((BYTE*) &supr_blk, SUPR_BLK_NUM);
     eDisk_ReadBlock((BYTE*) &blk_bmap, BLK_BMAP_BLK_NUM);
     eDisk_ReadBlock((BYTE*) &root, ROOT_INOD_BLK_NUM);
+    eDisk_ReadBlock((BYTE*) &fils, root.blks);
     return SUCCESS;
 }
 
@@ -131,8 +132,7 @@ int eFile_Create( char name[]){  // create new file, make it empty
     fils.dat[root.siz] = fil_blk;
     ++root.siz;
 
-    eDisk_WriteBlock((BYTE*) &root, ROOT_INOD_BLK_NUM);
-    eDisk_WriteBlock((BYTE*) &fils, root.blks);
+    eFile_Close();
     OS_bSignal(&fs_lok);
 
     return SUCCESS;
@@ -169,7 +169,7 @@ int eFile_Write(char data){
         eDisk_WriteBlock((BYTE*) &cur_blks, cur_inod.blks);
         clr_blk(&cur_dat, 0);
     }
-    ((char*) cur_dat.dat)[(cur_inod.siz + 1) % BLK_SIZ_BYTES] = data;
+    ((char*) cur_dat.dat)[cur_inod.siz % BLK_SIZ_BYTES] = data;
     eDisk_WriteBlock((BYTE*) &cur_dat, cur_blks.dat[cur_inod.siz++ / BLK_SIZ_BYTES]);
     eDisk_WriteBlock((BYTE*) &cur_inod, opnd_fil);
 
@@ -185,6 +185,7 @@ int eFile_Write(char data){
 int eFile_Close(void){
     eDisk_WriteBlock((BYTE*) &supr_blk, SUPR_BLK_NUM);
     eDisk_WriteBlock((BYTE*) &blk_bmap, BLK_BMAP_BLK_NUM);
+    eDisk_WriteBlock((BYTE*) &fils, root.blks);
     eDisk_WriteBlock((BYTE*) &root, ROOT_INOD_BLK_NUM);
     return SUCCESS;
 }
@@ -239,6 +240,7 @@ int eFile_ReadNext( char *pt) {       // get next byte
 // Input: none
 // Output: 0 if successful and 1 on failure (e.g., wasn't open)
 int eFile_RClose(void){ // close the file for writing
+    byte_ctr = 0;
     return SUCCESS;
 }
 
@@ -270,6 +272,10 @@ int eFile_Directory(void(*fp)(char*)){
 int eFile_Delete( char name[]){  // remove this file
     OS_bWait(&fs_lok);
     int fil_blk = find_file(name);
+    if(fil_blk == -1) {
+        OS_bSignal(&fs_lok);
+        return -1;
+    }
     for(int i = 0; i < root.siz; ++i)
         if(fil_blk == fils.dat[i]) {
             for(int j = i + 1; j < root.siz; ++j)
