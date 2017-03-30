@@ -53,6 +53,7 @@
 #include <stdint.h>
 #include "../inc/tm4c123gh6pm.h"
 #include "edisk.h"
+#include "os.h"
 
 #define SDC_CS_PB0 1
 #define SDC_CS_PD7 0
@@ -261,7 +262,14 @@ static BYTE rcvr_spi(void){
   while((SSI0_SR_R&SSI_SR_BSY)==SSI_SR_BSY){};
   SSI0_DR_R = 0xFF;                     // data out, garbage
   while((SSI0_SR_R&SSI_SR_RNE)==0){};   // wait until response
-  return (BYTE)SSI0_DR_R;               // read received data
+//  BYTE ret;
+  //if(ret = (BYTE)SSI0_DR_R != 0) {
+//      PF3 = 0;
+//      PF3 = 0x08;
+  //}               // read received dataF
+
+  //return ret;
+  return (BYTE)SSI0_DR_R;
 }
 
 /* Receive multiple byte */
@@ -546,7 +554,10 @@ DRESULT eDisk_Read(BYTE drv, BYTE *buff, DWORD sector, UINT count){
 DRESULT eDisk_ReadBlock(
     BYTE *buff,         /* Pointer to the data buffer to store read data */
     DWORD sector){      /* Start sector number (LBA) */
-  return eDisk_Read(0,buff,sector,1);
+  //PF3 = 8;
+  DRESULT ret = eDisk_Read(0,buff,sector,1);
+  //PF3 = 0;
+  return ret;
 }
 
 
@@ -600,7 +611,12 @@ DRESULT eDisk_Write(BYTE drv, const BYTE *buff, DWORD sector, UINT count){
 DRESULT eDisk_WriteBlock (
     const BYTE *buff,   /* Pointer to the data to be written */
     DWORD sector){      /* Start sector number (LBA) */
-  return eDisk_Write(0,buff,sector,1);  // 1 block
+  DRESULT ret;
+  PF3 ^= 8;
+  PF3 ^= 8;
+  ret = eDisk_Write(0,buff,sector,1);  // 1 block
+  PF3 ^= 8;
+  return ret;
 }
 
 #endif
