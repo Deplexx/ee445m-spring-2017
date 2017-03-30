@@ -642,7 +642,7 @@ void disk_timerproc (void)
   Stat = s;
 }
 
-
+/*
 void Timer5_Init(void){
   SYSCTL_RCGCTIMER_R |= 0x20;
   while((SYSCTL_PRTIMER_R&0x20) == 0){};
@@ -664,3 +664,4 @@ void Timer5A_Handler(void){
   TIMER5_ICR_R = 0x00000001;       // acknowledge timer5A timeout
   disk_timerproc();
 }
+*/
