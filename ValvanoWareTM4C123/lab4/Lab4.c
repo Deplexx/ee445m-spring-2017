@@ -91,6 +91,14 @@ int printf(const char *format, ...) {
     return 0;
 }
 
+//int putc (int ch, FILE *f) {
+//    return fputc(ch, f);
+//}
+
+//int getc (FILE *f){
+//  return fgetc(f);
+//}
+
 #define PF0  (*((volatile unsigned long *)0x40025004))
 #define PF1  (*((volatile unsigned long *)0x40025008))
 #define PF2  (*((volatile unsigned long *)0x40025010))
@@ -202,7 +210,10 @@ unsigned long time;      // in 10msec,  0 to 1000
     data = OS_Fifo_Get();        // 1000 Hz sampling get from producer
     voltage = (300*data)/1024;   // in mV
     distance = ADC2millimeter(data);
-    printf("%0u.%02u\t%0u.%03u \t%5u\n\r",time/100,time%100,voltage/1000,voltage%1000,distance);
+    //printf("%0u.%02u\t%0u.%03u \t%5u\n\r",time/100,time%100,voltage/1000,voltage%1000,distance);
+    UART_OutUDec(time/100); UART_OutChar('.'); UART_OutUDec(time%100); UART_OutChar('\t');
+    UART_OutUDec(voltage/1000); UART_OutChar('.'); UART_OutUDec(voltage%1000); UART_OutChar('\t');
+    UART_OutUDec(distance); UART_OutCRLF();
   }
   while(time < 200);       // change this to mean 2 seconds
   eFile_EndRedirectToFile();
@@ -445,7 +456,7 @@ void TestFile(void){   int i; char data;
   eFile_Directory(&UART_OutString);
   if(eFile_Create("file1"))     diskError("eFile_Create",0);
   if(eFile_WOpen("file1"))      diskError("eFile_WOpen",0);
-  for(i=0;i<1000;i++){
+  for(i=0;i<5000;i++){
     if(eFile_Write('a'+i%26))   diskError("eFile_Write",i);
     if(i%52==51){
       if(eFile_Write('\n'))     diskError("eFile_Write",i);  
@@ -455,11 +466,11 @@ void TestFile(void){   int i; char data;
   if(eFile_WClose())            diskError("eFile_WClose",0);
   eFile_Directory(&UART_OutString);
   if(eFile_ROpen("file1"))      diskError("eFile_ROpen",0);
-  for(i=0;i<1000;i++){
+  for(i=0;i<5000;i++){
     if(eFile_ReadNext(&data))   diskError("eFile_ReadNext",i);
     UART_OutChar(data);
   }
-  if(eFile_Delete("file1"))     diskError("eFile_Delete",0);
+  //if(eFile_Delete("file1"))     diskError("eFile_Delete",0);
   eFile_Directory(&UART_OutString);
   if(eFile_Close())             diskError("eFile_Close",0);
   printf("Successful test of creating a file\n\r");
@@ -493,6 +504,7 @@ int Testmain2(void){
 // create initial foreground threads
   NumCreated += OS_AddThread(&TestFile,128,1);  
   NumCreated += OS_AddThread(&IdleTask,128,3); 
+  NumCreated += OS_AddThread(&Interpreter,128,3);
  
   OS_Launch(10*TIME_1MS); // doesn't return, interrupts enabled in here
   return 0;               // this never executes
@@ -511,6 +523,7 @@ int main(void){
   NumCreated = 0 ;
 // create initial foreground threads
   NumCreated += OS_AddThread(&Interpreter,128,1);
+  //NumCreated += OS_AddThread(&Robot,128,1);
   NumCreated += OS_AddThread(&IdleTask,128,3);
 
   OS_Launch(10*TIME_1MS); // doesn't return, interrupts enabled in here

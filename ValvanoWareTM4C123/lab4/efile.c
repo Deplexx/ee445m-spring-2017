@@ -162,7 +162,7 @@ int eFile_WOpen(char name[]){      // open a file for writing
 int eFile_Write(char data){
     //printf("write");
     OS_bWait(&fs_lok);
-    UART_OutChar(data);
+    //UART_OutChar(data);
     if((cur_inod.siz % BLK_SIZ_BYTES) == 0 ) {
         int new_blk_num = next_free_blk();
         cur_blks.dat[cur_inod.siz / BLK_SIZ_BYTES] = new_blk_num;
@@ -225,7 +225,12 @@ int eFile_ReadNext( char *pt) {       // get next byte
     OS_bWait(&fs_lok);
 //    UART_OutString("bytectr: "); UART_OutUDec(byte_ctr); UART_OutCRLF();
 //    UART_OutString("cur_inod.siz: "); UART_OutUDec(cur_inod.siz); UART_OutCRLF();
-    if(byte_ctr >= cur_inod.siz) return 1;
+    if(byte_ctr >= cur_inod.siz) {
+        byte_ctr = 0;
+        if(byte_ctr > BLK_SIZ_BYTES)
+            eDisk_ReadBlock((BYTE*) &cur_dat, cur_blks.dat[0]);
+        return 1;
+    }
     *pt = ((char*) cur_dat.dat)[byte_ctr++ % BLK_SIZ_BYTES];
 //    UART_OutChar(*pt);
     if(((byte_ctr % BLK_SIZ_BYTES) == 0 )&& (byte_ctr != 0))
@@ -303,7 +308,7 @@ int eFile_EndRedirectToFile(void){
   return 0;
 }
 
-int fputc (int ch, FILE *f) { 
+int fputc (int ch, FILE *f) {
   if(StreamToFile){
     if(eFile_Write(ch)){          // close file on error
        eFile_EndRedirectToFile(); // cannot write to file
