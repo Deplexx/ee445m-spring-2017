@@ -17,6 +17,7 @@
 #include "PLL.h"
 #include "UART.h"
 #include "ff.h"
+#include "loader.h"
 
 #define NVIC_ST_CTRL_R          (*((volatile uint32_t *)0xE000E010))
 #define NVIC_ST_CTRL_CLK_SRC    0x00000004  // Clock Source
@@ -467,7 +468,7 @@ void Timer3_Init(unsigned long period, unsigned long priority){
   NVIC_EN1_R |= 1<<(35-32);      // 9) enable IRQ 35 in NVIC
 }
 
-void Timer5_Init(unsigned long period, unsigned long priority){
+static void Timer5_Init(unsigned long period, unsigned long priority){
   SYSCTL_RCGCTIMER_R |= 0x20;   // 0) activate TIMER5
   volatile int delay = SYSCTL_RCGCTIMER_R;
   TIMER5_CTL_R = 0x00000000;    // 1) disable TIMER4A during setup
@@ -510,7 +511,7 @@ void Timer3A_Handler(void){
   (*PeriodicTask1)();                // execute user task
   #endif
 }
-
+/*
 void Timer5A_Handler(void){
   TIMER5_ICR_R = TIMER_ICR_TATOCINT;// acknowledge TIMER5A timeout
   #if DEBUG
@@ -521,6 +522,7 @@ void Timer5A_Handler(void){
   (*PeriodicTask2)();                // execute user task
   #endif
 }
+*/
 
 //******** OS_AddSW1Task *************** 
 // add a background task to run whenever the SW1 (PF4) button is pushed
@@ -862,6 +864,13 @@ void OS_EnableInterrupts(void) {
   IntsEnabled = 1;
   #endif
   EnableInterrupts();
+}
+
+int OS_AddProcess(void(*entry)(void), uint32_t *text, uint32_t *data, uint32_t stackSize, uint32_t priority){  
+  JumpAsm();
+  //OS_AddThread(entry,128,1);
+  //OS_Launch(TIME_1MS*10);
+  return 0;
 }
 
 long StartCritical(void) {

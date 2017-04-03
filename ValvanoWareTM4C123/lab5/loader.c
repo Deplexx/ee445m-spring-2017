@@ -32,7 +32,7 @@
 #include "loader.h"
 #include "elf.h"
 #ifndef VALVANOWARE
-#include "app/sysent.h"
+#include "sysent.h"
 #endif
 #include "loader_config.h"
 
@@ -664,5 +664,5 @@ int exec_elf(const char *path, const ELFEnv_t *env) {
       return -1;
     }
   }
-  return -1;
+  //return -1;
 }

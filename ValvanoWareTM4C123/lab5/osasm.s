@@ -13,6 +13,8 @@
         EXPORT  StartOS
         EXPORT  SysTick_Handler
 		EXPORT  PendSV_Handler
+		EXPORT  SVC_Handler
+		EXPORT  JumpAsm
 		
 		    ALIGN
 PF1    EQU     0x40025008
@@ -157,6 +159,18 @@ StartOS
     POP     {R1}               ; discard PSR
     CPSIE   I                  ; Enable interrupts at processor level
     BX      LR                 ; start first thread
-	
+
+JumpAsm
+	ADD		R0, #30
+	BX		R0
+
+SVC_Handler
+    BX      LR
+;0 OS_Id
+;1 OS_Kill
+;2 OS_Sleep
+;3 OS_Time
+;4 OS_AddThread
+
     ALIGN
     END

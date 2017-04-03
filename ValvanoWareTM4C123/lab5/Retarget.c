@@ -36,13 +36,11 @@ int fputc(int ch, FILE *f) {
 int fgetc(FILE *f) {
   return (sendchar(getkey()));
 }
-*/
 
 int ferror(FILE *f) {
-  /* Your implementation of ferror */
   return EOF;
 }
-
+*/
 
 void _ttywrch(int ch) {
   sendchar (ch);
