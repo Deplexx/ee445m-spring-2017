@@ -5,7 +5,7 @@
 #define __OS_H  1
 
 //debug flag; set to 0 to undefine some useful (but slow) debug info
-#define DEBUG 1
+#define DEBUG 0
 
 #if DEBUG
 enum tEvent {
@@ -36,6 +36,13 @@ void addTInfo(enum tEvent e);
 #define BLUE      0x04
 #define GREEN     0x08
 
+typedef struct pcb {
+	uint32_t *data;
+	uint32_t *text;
+	int32_t pid;
+	int32_t num_threads;
+} pcbType;
+
 typedef struct tcb{
   int32_t *sp;       // pointer to stack (valid for threads not running
   struct tcb *next;  // linked-list pointer
@@ -46,6 +53,7 @@ typedef struct tcb{
   int32_t pri;
   int32_t blocked;
   struct tcb *bNext;
+	pcbType *pcb;
 } tcbType;
 
 // feel free to change the type of semaphore, there are lots of good solutions

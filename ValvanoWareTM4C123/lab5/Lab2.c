@@ -101,6 +101,14 @@ void LaunchProc(void){
   OS_Kill();
 }
 
+//uint32_t dummy_text[1];
+//uint32_t dummy_data[1];
+
+void idle_proc(void) {
+	while(1)
+		OS_Suspend();
+}
+
 int main(void){
   OS_Init();
   PortE_Init();
@@ -112,20 +120,21 @@ int main(void){
   f_mount(&g_sFatFs, "", 0);
   
   //OS_AddPeriodicThread(&disk_timerproc,80000,0);
-  OS_AddThread(&IdleTask,128,7);
+  OS_AddProcess(&idle_proc, 0, 0, 128, 7);
+	OS_AddProcess(&Interpreter, 0, 0, 128, 7);
   //OS_AddThread(&LaunchProc,128,1);
   
-  ELFEnv_t env;
-  ELFSymbol_t symbols[1];
-  symbols[0].name = "ST7735_Message";
-  symbols[0].ptr = &ST7735_Message;
-  env.exported = (const ELFSymbol_t *) &symbols[0];
-  env.exported_size = 1;
+//  ELFEnv_t env;
+//  ELFSymbol_t symbols[1];
+//  symbols[0].name = "ST7735_Message";
+//  symbols[0].ptr = &ST7735_Message;
+//  env.exported = (const ELFSymbol_t *) &symbols[0];
+//  env.exported_size = 1;
   
-  EnableInterrupts();
-  exec_elf("Proc.axf",&env);
+  //EnableInterrupts();
+  //exec_elf("Proc.axf",&env);
   
-  //OS_Launch(TIME_1MS*10);
+  OS_Launch(TIME_1MS*10);
   //EnableInterrupts();
   /*
   while(1){

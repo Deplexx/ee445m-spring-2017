@@ -12,6 +12,7 @@
 #include "../inc/tm4c123gh6pm.h"
 
 #include "FIFO.h"
+#include "heap.h"
 #include "LED.h"
 #include "os.h"
 #include "PLL.h"
@@ -38,7 +39,13 @@ void EnableInterrupts(void);  // Enable interrupts
 long StartCriticalAsm(void);
 void EndCriticalAsm(long sr);
 void StartOS(void);
-void JumpAsm(void);
+void JumpAsm(void (*entry)(void), uint32_t *text, uint32_t *data);
+
+#define MAXPROCS 20        // maximum number of threads
+pcbType pcbs[MAXPROCS];
+pcbType *ProcPt;
+int numProcs = 0;
+int currentPid = 0;
 
 #define MAXTHREADS  20        // maximum number of threads
 #define STACKSIZE   100      // number of 32-bit words in stack
@@ -116,9 +123,18 @@ static unsigned long Mail;
 
 static void PortB_Init(void);
 
+static int add_thread_to_proc(void(*task)(void), unsigned long stackSize, unsigned long priority, int32_t *data);
+
 /* SEMAPHORES */
 void BlockThread(Sema4Type *sema);
 void UnblockThread(Sema4Type *sema);
+
+void InitAllPCBs(void) {
+	for(int i = 0; i < MAXPROCS; ++i) {
+		pcbs[i].num_threads = 0;
+		pcbs[i].pid = -1;
+	}
+}
 
 void InitAllTCBs(void){
   for(int k=0; k<MAXTHREADS; k++){
@@ -194,10 +210,13 @@ static void PortF_Init(void) {
 // initialize OS controlled I/O: systick, 50 MHz PLL
 // input:  none
 // output: none
+
 void OS_Init(void){
   OS_DisableInterrupts();
   PLL_Init(Bus80MHz);         // set processor clock to 50 MHz
   InitAllTCBs();
+	InitAllPCBs();
+	//OS_AddProcess(&idle_proc, dummy_text, dummy_data, 128, 0x7FFFFFFF);
   OS_InitSysTimer();
   UART_Init();
   PortF_Init();
@@ -262,6 +281,7 @@ int OS_AddThread(void(*task)(void), unsigned long stackSize, unsigned long prior
     
     SetInitialStack(spot);
     Stacks[spot][STACKSIZE-2] = (int32_t)(task);
+		Stacks[spot][STACKSIZE-11] = (int32_t) RunPt->pcb->data;
     //fix linked list
     tcbs[spot].next = runHead;
     tcbs[spot].prev = runTail;
@@ -276,9 +296,12 @@ int OS_AddThread(void(*task)(void), unsigned long stackSize, unsigned long prior
     tcbs[spot].pri = priority;
     tcbs[spot].blocked = 0;
     tcbs[spot].bNext = NULL;
+		tcbs[spot].pcb = ProcPt;
+		++ProcPt->num_threads;
   } else if(numThreads == 0) {
     SetInitialStack(0);
     Stacks[0][STACKSIZE-2] = (int32_t)(task);
+		Stacks[0][STACKSIZE-11] = (int32_t) RunPt->pcb->data;
     tcbs[0].next = &tcbs[0];
     tcbs[0].prev = &tcbs[0];
     runHead = &tcbs[0];
@@ -289,7 +312,68 @@ int OS_AddThread(void(*task)(void), unsigned long stackSize, unsigned long prior
     tcbs[0].pri = priority;
     tcbs[0].blocked = 0;
     tcbs[0].bNext = NULL;
+		tcbs[0].pcb = ProcPt;
     RunPt = &tcbs[0]; //init runpt
+		++ProcPt->num_threads;
+  } else {
+    return 0;
+  }
+  numThreads++;
+  currentId++;
+  EndCritical(status);
+  return 1;               // successful
+}
+
+static int add_thread_to_proc(void(*task)(void), unsigned long stackSize, unsigned long priority, int32_t *data) {
+	int32_t status;
+  status = StartCritical();
+	int spot;
+  if(numThreads>0 && numThreads<MAXTHREADS){
+    //find open tcb spot
+    for(int k=0; k<MAXTHREADS; k++){
+      if(!(tcbs[k].active)){
+        spot = k;
+        break;
+      }
+    }
+    
+    SetInitialStack(spot);
+    Stacks[spot][STACKSIZE-2] = (int32_t)(task);
+		Stacks[spot][STACKSIZE-11] = (int32_t) data;
+    //fix linked list
+    tcbs[spot].next = runHead;
+    tcbs[spot].prev = runTail;
+    runTail->next = &tcbs[spot];
+    runHead->prev = &tcbs[spot];
+    //set runTail to current thread
+    runTail = &tcbs[spot];
+    //other init
+    tcbs[spot].active = 1;
+    tcbs[spot].sleep = 0;
+    tcbs[spot].id = currentId;
+    tcbs[spot].pri = priority;
+    tcbs[spot].blocked = 0;
+    tcbs[spot].bNext = NULL;
+		tcbs[spot].pcb = ProcPt;
+		++ProcPt->num_threads;
+  } else if(numThreads == 0) {
+		spot = 0;
+    SetInitialStack(0);
+    Stacks[0][STACKSIZE-2] = (int32_t)(task);
+		Stacks[0][STACKSIZE-11] = (int32_t) data; 	
+    tcbs[0].next = &tcbs[0];
+    tcbs[0].prev = &tcbs[0];
+    runHead = &tcbs[0];
+    runTail = &tcbs[0];
+    tcbs[0].active = 1;
+    tcbs[0].sleep = 0;
+    tcbs[0].id = 0;
+    tcbs[0].pri = priority;
+    tcbs[0].blocked = 0;
+    tcbs[0].bNext = NULL;
+		tcbs[0].pcb = ProcPt;
+    RunPt = &tcbs[0]; //init runpt
+		++ProcPt->num_threads;
   } else {
     return 0;
   }
@@ -338,6 +422,11 @@ void OS_Kill(void){
     runTail = RunPt->prev;
   
   numThreads--;
+	if(--ProcPt->num_threads == 0) {
+		ProcPt->pid = -1;
+		Heap_Free(ProcPt->data);
+	  Heap_Free(ProcPt->text);
+	}
   //2 trigger pendsv, context switch
   NVIC_INT_CTRL_R |= 0x10000000;
  
@@ -868,9 +957,24 @@ void OS_EnableInterrupts(void) {
 }
 
 int OS_AddProcess(void(*entry)(void), uint32_t *text, uint32_t *data, uint32_t stackSize, uint32_t priority){  
-  JumpAsm();
-  //OS_AddThread(entry,128,1);
-  //OS_Launch(TIME_1MS*10);
+	long sav = StartCritical();
+	pcbType *nxt, *prev;
+	for(int i = 0; i < MAXPROCS; ++i)
+		if(pcbs[i].pid == -1) {
+			nxt = &pcbs[i];
+			break;
+		}
+  nxt->pid = ++numProcs; 
+	nxt->data = data;
+	nxt->text = text;
+//	prev = ProcPt;	
+  ProcPt = nxt;
+	add_thread_to_proc(entry, stackSize, priority, (int32_t*) data);
+		
+	if(prev != NULL)
+		ProcPt = prev;
+	EndCritical(sav);
+  //JumpAsm(entry, text, data);
   return 0;
 }
 

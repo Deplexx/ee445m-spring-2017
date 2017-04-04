@@ -9,6 +9,7 @@
         REQUIRE8
         PRESERVE8
 
+		EXTERN  ProcPt
         EXTERN  RunPt
         EXPORT  StartOS
         EXPORT  SysTick_Handler
@@ -73,7 +74,9 @@ SysTick_Next
 	BNE     SysTick_Priority   ; R3 != RunPt
 	STR     R5, [R0]           ; update RunPt
 	LDR     SP, [R5]
-    	
+    LDR     R0, =ProcPt        ; R0 -> ProcPt
+	LDR     R1, [R5,#36]       ; Get current RunPt's pcb
+	STR     R5, [R0]	       ; Update ProcPt
 ;SysTick_Next_Thread
 ;    LDR     R1, [R1,#4]        ; 6) R1 = RunPt->next
 ;    LDR     R2, [R1,#16]       ; RunPt->next->sleep
@@ -86,6 +89,7 @@ SysTick_Next
 ;    LDR     SP, [R1]           ; 7) new thread SP; SP = RunPt->sp;
 
     POP     {R4-R11}           ; 8) restore regs r4-11
+	;LDR     R9, [R0]		   ; set R9 to process's data base offset
 	LDR     R0, =PF1           ; toggle heartbeat
 	LDR     R1, [R0]
 	EOR     R1, #0x02
@@ -133,7 +137,9 @@ PendSV_Next
 	BNE     PendSV_Priority   ; R3 != RunPt
 	STR     R5, [R0]           ; update RunPt
 	LDR     SP, [R5]
-
+	LDR     R0, =ProcPt        ; R0 -> ProcPt
+	LDR     R1, [R5,#36]       ; Get current RunPt's pcb
+	STR     R5, [R0]	       ; Update ProcPt
 ;PendSV_Next_Thread
 ;    LDR     R1, [R1,#4]        ; 6) R1 = RunPt->next
 ;    LDR     R2, [R1,#16]       ; RunPt->next->sleep
@@ -146,6 +152,7 @@ PendSV_Next
 ;    LDR     SP, [R1]           ; 7) new thread SP; SP = RunPt->sp;
 
     POP     {R4-R11}           ; 8) restore regs r4-11
+	;LDR     R9, [R0]		   ; set R9 to process's data base offset
 	LDR     R0, =PF2
 	LDR     R1, [R0]
 	EOR     R1, #0x04
@@ -167,7 +174,7 @@ StartOS
     BX      LR                 ; start first thread
 
 JumpAsm
-	ADD		R0, #30
+	;ADD		R0, #30
 	MOV 	R9, R2
 	BX		R0
 
