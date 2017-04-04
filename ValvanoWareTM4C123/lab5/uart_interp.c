@@ -29,185 +29,113 @@
 #include <stdbool.h>
 #include <stdint.h>
 #include <stdlib.h>
+#include <stdio.h>
 #include <string.h>
 
 #include "ADC.h"
 #include "os.h"
 #include "PLL.h"
 #include "ST7735.h"
-#include "UART.h"
 #include "uart_interp.h"
+#include "lcd_cmdLine.h"
+#include "proc_cmdLine.h"
+#include "UART.h"
+#include "cmdLine.h"
 
-#define IN_BUFF_SIZE 256
-char inBuff[IN_BUFF_SIZE];
+static const char UP_ARROW[4] = {27,91,65, '\0'};
 
-#define TEST_BUFF_SIZE 256
-uint16_t adcBuff[TEST_BUFF_SIZE];
+#define CMD_LINE_BUFF_SIZE 10
+#define CMD_LINE_SIZE 256
+static char cmd_line_buff[CMD_LINE_BUFF_SIZE][CMD_LINE_SIZE];
 
+#define ARGV_SIZE 20
+static char argv[ARGV_SIZE][ARGV_TOK_SIZE];
+static int argc;
 
+static char *cur_cmd_line_ptr = cmd_line_buff[0];
+static int cur_cmd_line_indx = 0;
+static int cmd_line_buff_tail = 0;
 
-static inline int nextInt() {
-  return atoi(strtok(NULL, " \t"));
-}
+static void read_cmd_line(void);
+static void put_cmd_line(char *cmd_line);
+static void show_prev_cmd_line(int *cmd_line_len);
+static void show_next_cmd_line(int *cmd_line_len);
+static void show_cmd_line(int *cmd_line_len, int prev);
 
-static void adc_runComm(const char *comm);
-static void os_runComm(const char *comm);
-static void lcd_runComm(const char *comm);
-
-void Interpreter(void) {
-  char *currTok;
-
-  //PLL_Init(Bus80MHz);       // set system clock to 50 MHz
-  //UART_Init();              // initialize UART
-  
+void Interpreter(void) {		
   while(true) {
-    UART_OutString("> ");
-    UART_InString(inBuff, IN_BUFF_SIZE);
-
-    UART_OutCRLF();
-
-    if(strlen(inBuff) > IN_BUFF_SIZE) {
-      UART_OutStringCRLF("Commands must be <= 256 chars. Resulting buffer overflow may cause errors; exiting...");
-      //exit(1);
-    }
-
-    if(strcmp((currTok = strtok(inBuff, " \t")), "echo") == 0)
-      UART_OutStringCRLF(strtok(NULL, " \t"));
-    else if(strcmp((const char*) currTok, "quit") == 0) {
-      UART_OutStringCRLF("Quitting...");
+		read_cmd_line();		
+		
+    if(strcmp(argv[0], "echo") == 0)
+      printf(argv[1]);
+    else if(strcmp(argv[0], "quit") == 0) {
+      printf("Quitting...");
       break;
-    } else if(strcmp((const char*) currTok, "adc") == 0)
-      adc_runComm(strtok(NULL, " \t"));
-    else if(strcmp((const char*) currTok, "os") == 0)
-      os_runComm(strtok(NULL, " \t"));
-    else if(strcmp((const char*) currTok, "lcd") == 0)
-      lcd_runComm(strtok(NULL, " \t"));
-    else if(strcmp((const char*) currTok, "") != 0)
-      UART_OutStringCRLF("Command not found. Enter \"quit\" to quit.");
+    } else if(strcmp(argv[0], "lcd") == 0)
+      lcd_runComm(argc, argv);
+		else if(strcmp(argv[0], "proc") == 0)
+			proc_runComm(argc, argv);
+    else if(strcmp(argv[0], "") != 0)
+      printf("Command not found. Enter \"quit\" to quit.");
   }
 }
 
-static void adc_runComm(const char *comm) {
-    char *currComm = strtok((char*)comm, " \t");
-
-    if(strcmp(currComm, "on") == 0) {
-        int channel = nextInt();
-        int fs = nextInt();
-
-        if(channel == NULL)
-          channel = 0;
-        else if(channel < 0) {
-          UART_OutStringCRLF("Invalid channel number. Enter a number <= 11 && >= 0");
-          return;
-        }
-
-        if(fs == NULL)
-          fs = 1;
-        else if(fs < 1) {
-          UART_OutStringCRLF("Invalid frequency. Enter a number <= 11 && >= 0");
-          return;
-        }
-
-        UART_OutStringCRLF("Turning ADC0 on...");
-        ADC_Init(channel);//, fs);
-    } else if(strcmp(currComm, "print") == 0) {
-        UART_OutString("ADC Output: Always Nothing");
-        //UART_OutUDec(ADC_Val());
-        UART_OutCRLF();
-
-        return;
-    } else if(strcmp(currComm, "collect")) {
-        int channelNum = nextInt();
-        int fs = nextInt();
-        int numberOfSamples = nextInt();
-
-        if(numberOfSamples == NULL)
-            numberOfSamples = 1;
-        else if(numberOfSamples > 256) {
-          UART_OutStringCRLF("Invalid number of samples; enter a number >= 1.");
-          return;
-        }
-
-        if(channelNum == NULL)
-          channelNum = 0;
-        else {
-          UART_OutStringCRLF("Invalid channel number; enter a number <= 11 && >= 0");
-          return;
-        }
-
-        if(fs == NULL)
-          fs = 1;
-        if(fs < 1) {
-          UART_OutStringCRLF("Invalid sample frequency; enter a number <= 125000 && >= 1.");
-          return;
-        }
-
-        ADC_Collect(channelNum, fs, NULL);
-    } else
-      UART_OutStringCRLF("Invalid adc command. Type \"adc -h\" for a list of commands.");
+static void read_cmd_line(void) {
+	static char tokenized_cur_cmd_line[CMD_LINE_SIZE];
+	int len = argc = 0;
+	char c;
+	cur_cmd_line_indx = cmd_line_buff_tail++;
+	cmd_line_buff_tail %= CMD_LINE_BUFF_SIZE;
+	cur_cmd_line_ptr = (char*) &cmd_line_buff[cur_cmd_line_indx];
+	for(int i = 0; i < CMD_LINE_SIZE; ++i) 
+		cur_cmd_line_ptr[i] = '\0';
+	
+	strcpy(argv[0], "");	
+	
+	printf("\r\n> ");
+	
+  do {
+		c = UART_InChar();
+		if(c == CR) {
+			cur_cmd_line_ptr[len] = '\0';
+		} else if(c == BS) {
+      if(len > 0) {
+				UART_OutChar(BS); 
+				cur_cmd_line_ptr[len--] = '\0';
+				continue;
+			}
+		} else if(strncmp(cur_cmd_line_ptr, UP_ARROW, strlen(UP_ARROW)) == 0)
+			show_prev_cmd_line(&len);
+		else if(len < (CMD_LINE_SIZE - 1)) {
+      cur_cmd_line_ptr[len++] = c;
+      UART_OutChar(c);
+    }
+  } while(c != CR);
+	
+	snprintf(tokenized_cur_cmd_line, CMD_LINE_SIZE, cur_cmd_line_ptr);
+	
+	for(char *s = strtok(tokenized_cur_cmd_line, " \t"); 
+		s != NULL; s = strtok(NULL, " \t")) {
+		strncpy(argv[argc++], s, ARGV_TOK_SIZE);
+  }
+		
+	printf("\r\n");
 }
 
-static void os_runComm(const char *comm) {
-    char *currTok = strtok((char*)comm, " \t");
-
-    if(strcmp((const char*) currTok, "ints") == 0) {
-#if DEBUG
-      UART_OutStringCRLF("OS interrupt info:");
-      UART_OutString("Max Time Ints Disabled: "); UART_OutUDec(OS_MaxTimeIntsDisabled() / 800); UART_OutStringCRLF(" x 0.1us");
-      UART_OutString("Time Ints Disabled: "); UART_OutUDec(OS_TimeIntsDisabled() / 800); UART_OutStringCRLF(" x 0.1us");
-      UART_OutString("Percent Time Ints Disabled: "); UART_OutUDec(OS_PercentIntsDisabled()); UART_OutStringCRLF(" %");
-#else
-      UART_OutStringCRLF("You are not in debug mode. Set DEBUG in os.h to 1");
-#endif
-    } else if(strcmp((const char*) currTok, "count") == 0) {
-      UART_OutString("OS time: "); UART_OutUDec(OS_Time()); UART_OutStringCRLF(" x 12.5ns");
-    } else if(strcmp((const char*) currTok, "clear") == 0) {
-      UART_OutStringCRLF("Clearing OS Time...");
-      OS_ClearMsTime();
-    } else
-      UART_OutStringCRLF("Invalid os command. Type \"os -h\" for a list of commands.");
+static void show_prev_cmd_line(int *cmd_line_len) {
+	show_cmd_line(cmd_line_len, 1);
 }
 
-static void lcd_runComm(const char *comm) {
-    char *currTok = (char*)comm;
-
-    if(strcmp((const char*) currTok, "on") == 0)
-        ST7735_InitR(INITR_REDTAB);
-    else if(strcmp((const char*) currTok, "echo") == 0) {
-        int device = nextInt();
-        int line = nextInt();
-        char* string = strtok(NULL, " \t");
-        char *valStr = strtok(NULL, " \t");
-        uint32_t value = atoi(valStr);
-
-        if(device == NULL)
-            device = 0;
-        else if(device > 1 || device < 0) {
-            UART_OutStringCRLF("Invalid device; enter a number in {0,1}");
-            return;
-        }
-
-        if(line == NULL)
-            line = 0;
-        else if(line > 3 || line < 0) {
-            UART_OutStringCRLF("Invalid line; enter a number <= 3 && >= 1");
-            return;
-        }
-
-        if(string == NULL) {
-            UART_OutStringCRLF("You must provide a message.");
-            return;
-        }
-
-        if(valStr == NULL) {
-            UART_OutStringCRLF("You must provide a value.");
-            return;
-        }
+static void show_next_cmd_line(int *cmd_line_len) {
+	show_cmd_line(cmd_line_len, 0);
+}
 
 
-        ST7735_Message(device, line, string, value);
-    } else if(strcmp(currTok, "clear") == 0)
-      Output_Clear();
-    else
-      UART_OutStringCRLF("Invalid lcd command. Type \"lcd -h\" for a list of commands.");
+static void show_cmd_line(int *cmd_line_len, int prev) {
+	if(prev == 1) --cur_cmd_line_indx;
+	else if(prev == 0) ++cur_cmd_line_indx;			
+  for(int i = 0; i < (*cmd_line_len = strlen(cur_cmd_line_ptr)); ++i)
+		UART_OutChar(BS);	
+	cur_cmd_line_ptr = (char*) &cmd_line_buff[cur_cmd_line_indx];
+	UART_OutString(cur_cmd_line_ptr);	
 }

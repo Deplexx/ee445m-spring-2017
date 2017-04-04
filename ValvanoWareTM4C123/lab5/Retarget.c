@@ -12,6 +12,8 @@
 #include <time.h>
 #include <rt_misc.h>
 
+#include "UART.h"
+
 #pragma import(__use_no_semihosting_swi)
 
 struct __FILE { int handle; /* Add whatever you need here */ };
@@ -20,23 +22,16 @@ FILE __stdin;
 
 long timeval;
 
-int sendchar(int ch){
-  return 0;
-}
-
-int getkey(void){
-  return 0;
-}
-
-/*
 int fputc(int ch, FILE *f) {
-  return (sendchar(ch));
+  UART_OutChar(ch);
+	return 0;
 }
 
 int fgetc(FILE *f) {
-  return (sendchar(getkey()));
+  UART_OutChar(UART_InChar());
+	return 0;
 }
-*/
+
 
 int ferror(FILE *f) {
   /* Your implementation of ferror */
@@ -45,7 +40,7 @@ int ferror(FILE *f) {
 
 
 void _ttywrch(int ch) {
-  sendchar (ch);
+  UART_OutChar(ch);
 }
 
 

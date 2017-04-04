@@ -7,7 +7,6 @@
 #include "inc/hw_types.h"
 #include "inc/tm4c123gh6pm.h"
 
-#include "OS.h"
 #include "Display.h"
 
 #define PF2     (*((volatile uint32_t *)0x40025010))

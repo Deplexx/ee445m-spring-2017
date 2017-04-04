@@ -94,8 +94,8 @@ int main(void){
   PortE_Init();
   ST7735_InitR(INITR_REDTAB);
 
-  OS_AddSW1Task(&SW1Push,2);
-  OS_AddSW2Task(&SW2Push,2);
+//  OS_AddSW1Task(&SW1Push,2);
+//  OS_AddSW2Task(&SW2Push,2);
   
   NumCreated = 0 ;
   
