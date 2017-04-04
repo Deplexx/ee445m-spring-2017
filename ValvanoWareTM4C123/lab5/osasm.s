@@ -16,6 +16,12 @@
 		EXPORT  SVC_Handler
 		EXPORT  JumpAsm
 		
+		IMPORT OS_Id
+		IMPORT OS_Kill
+		IMPORT OS_Sleep
+		IMPORT OS_Time
+		IMPORT OS_AddThread
+		
 		    ALIGN
 PF1    EQU     0x40025008
 PF2    EQU     0x40025010
@@ -162,15 +168,52 @@ StartOS
 
 JumpAsm
 	ADD		R0, #30
+	MOV 	R9, R2
 	BX		R0
 
+;OS_Id 0
+;OS_Kill 1
+;OS_Sleep 2
+;OS_Time 3
+;OS_AddThread 4
+
 SVC_Handler
-    BX      LR
-;0 OS_Id
-;1 OS_Kill
-;2 OS_Sleep
-;3 OS_Time
-;4 OS_AddThread
+	LDR  R12,[SP,#24]	; Return address
+    LDRH R12,[R12,#-2]	; SVC instruction is 2 bytes
+    BIC  R12,#0xFF00	; Extract ID in R12
+    LDM  SP,{R0-R3}	; Get any parameters
+	PUSH {LR}
+	MOV  R5, #0
+	ADRL  R5, SVCTABLE
+    ADD  R5, R12, LSL #1
+	ADD  R5, R5, #1
+    BX   R5		
+SVCTABLE
+    B OS_ID
+	B OS_KILL
+	B OS_SLEEP
+	B OS_TIME
+	B OS_ADDTHREAD
+SVCRET	
+	POP {LR}
+    STR  R0,[SP]		; Store return value
+	BX   LR			; Return from exception
+
+OS_ID
+	BL OS_Id
+	B SVCRET
+OS_KILL
+	BL OS_Kill
+	B SVCRET
+OS_SLEEP
+	BL OS_Sleep
+	B SVCRET
+OS_TIME
+	BL OS_Time
+	B SVCRET
+OS_ADDTHREAD
+	BL OS_AddThread
+	B SVCRET
 
     ALIGN
     END

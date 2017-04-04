@@ -44,6 +44,8 @@
 
 static int NumCreated;
 
+void EnableInterrupts(void);
+
 void PortE_Init(void){ 
   SYSCTL_RCGCGPIO_R |= 0x10;       // activate port E
   volatile int delay = SYSCTL_RCGCGPIO_R;

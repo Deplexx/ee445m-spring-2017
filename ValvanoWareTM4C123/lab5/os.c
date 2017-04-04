@@ -38,6 +38,7 @@ void EnableInterrupts(void);  // Enable interrupts
 long StartCriticalAsm(void);
 void EndCriticalAsm(long sr);
 void StartOS(void);
+void JumpAsm(void);
 
 #define MAXTHREADS  20        // maximum number of threads
 #define STACKSIZE   100      // number of 32-bit words in stack
