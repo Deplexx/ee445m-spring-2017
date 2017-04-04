@@ -32,6 +32,10 @@
 #include "os.h"
 #include "ST7735.h"
 #include "uart_interp.h"
+#include "loader.h"
+#include "ff.h"
+#include "diskio.h"
+#include "heap.h"
 
 #define PE0  (*((volatile unsigned long *)0x40024004))
 #define PE1  (*((volatile unsigned long *)0x40024008))
@@ -89,7 +93,47 @@ void IdleTask(void){
   while(1){;}
 }
 
+void LaunchProc(void){
+  
+  
+  OS_Kill();
+}
+
 int main(void){
+  OS_Init();
+  PortE_Init();
+  Heap_Init();
+  ST7735_InitR(INITR_REDTAB);
+  ST7735_FillScreen(0);
+  
+  FATFS g_sFatFs;
+  f_mount(&g_sFatFs, "", 0);
+  
+  //OS_AddPeriodicThread(&disk_timerproc,80000,0);
+  OS_AddThread(&IdleTask,128,7);
+  //OS_AddThread(&LaunchProc,128,1);
+  
+  ELFEnv_t env;
+  ELFSymbol_t symbols[1];
+  symbols[0].name = "ST7735_Message";
+  symbols[0].ptr = &ST7735_Message;
+  env.exported = (const ELFSymbol_t *) &symbols[0];
+  env.exported_size = 1;
+  
+  EnableInterrupts();
+  exec_elf("Proc.axf",&env);
+  
+  //OS_Launch(TIME_1MS*10);
+  //EnableInterrupts();
+  /*
+  while(1){
+    static volatile int num = 0;
+    num++;
+  }
+  */
+}
+
+int notmain(void){
   OS_Init();
   PortE_Init();
   ST7735_InitR(INITR_REDTAB);

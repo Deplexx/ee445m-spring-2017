@@ -14,6 +14,8 @@ extern "C" {
 #define _USE_IOCTL  1  /* 1: Enable disk_ioctl() fucntion */
 
 #include "integer.h"
+  
+void disk_timerproc (void);
 
 
 /* Status of Disk Functions */

@@ -36,6 +36,8 @@
 #include <stdlib.h>
 #include <string.h>
 
+#define VALVANOWARE 1
+
 #ifndef DOX
 
 #ifdef VALVANOWARE
@@ -43,7 +45,7 @@
 #include <stdint.h>
 #include "ff.h"
 #include "heap.h"
-#include "UART2.h"
+#include "UART.h"
 #include "os.h"
 
 typedef unsigned long int off_t;
@@ -83,10 +85,12 @@ void LOADER_CLEAR(void* ptr, size_t size) { int i; int32_t *p;
 
 #else // VALVANOWARE
 
+/*
 #include <unistd.h>
 #include <sys/types.h>
 #include <sys/stat.h>
 #include <fcntl.h>
+*/
 
 #if 0
 #define LOADER_FD_T FILE *

@@ -448,14 +448,29 @@
               <FilePath>.\UART.c</FilePath>
             </File>
             <File>
-              <FileName>cr4_fft_64_stm32.s</FileName>
-              <FileType>2</FileType>
-              <FilePath>.\cr4_fft_64_stm32.s</FilePath>
+              <FileName>diskio.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>.\diskio.c</FilePath>
             </File>
             <File>
-              <FileName>PID_stm32.s</FileName>
-              <FileType>2</FileType>
-              <FilePath>.\PID_stm32.s</FilePath>
+              <FileName>ff.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>.\ff.c</FilePath>
+            </File>
+            <File>
+              <FileName>heap.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>.\heap.c</FilePath>
+            </File>
+            <File>
+              <FileName>Retarget.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>.\Retarget.c</FilePath>
+            </File>
+            <File>
+              <FileName>loader.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>.\loader.c</FilePath>
             </File>
           </Files>
         </Group>
