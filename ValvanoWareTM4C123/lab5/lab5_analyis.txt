@@ -1,0 +1,7 @@
+1)	Briefly explain the dynamic memory allocation algorithm in your heap manager. Does this implementation have internal or external fragmentation?
+
+We used the given heap implementation. There is some slight internal fragmentation because of alignment. External fragmentation is a problem, but it mitigated by merging contiguous free blocks.
+
+2)	How many simultaneously active processes can your system support? What factors limit this number, and how could it be increased?
+
+20; We are limited by the maximum number of threads our system can handle, and by the pcb list's static allocation.
