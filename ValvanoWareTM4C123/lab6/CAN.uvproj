@@ -404,11 +404,6 @@
               <FilePath>.\startup.s</FilePath>
             </File>
             <File>
-              <FileName>PLL.c</FileName>
-              <FileType>1</FileType>
-              <FilePath>.\PLL.c</FilePath>
-            </File>
-            <File>
               <FileName>main.c</FileName>
               <FileType>1</FileType>
               <FilePath>.\main.c</FilePath>
@@ -419,19 +414,49 @@
               <FilePath>.\Timer3.c</FilePath>
             </File>
             <File>
-              <FileName>can.c</FileName>
-              <FileType>1</FileType>
-              <FilePath>.\can.c</FilePath>
-            </File>
-            <File>
               <FileName>can0.c</FileName>
               <FileType>1</FileType>
               <FilePath>.\can0.c</FilePath>
             </File>
             <File>
-              <FileName>interrupt.c</FileName>
+              <FileName>driverlib-cm4f.lib</FileName>
+              <FileType>4</FileType>
+              <FilePath>..\driverlib\rvmdk-cm4f\driverlib-cm4f.lib</FilePath>
+            </File>
+            <File>
+              <FileName>PeriodMeasure.c</FileName>
               <FileType>1</FileType>
-              <FilePath>.\interrupt.c</FilePath>
+              <FilePath>.\PeriodMeasure.c</FilePath>
+            </File>
+            <File>
+              <FileName>ST7735.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>.\ST7735.c</FilePath>
+            </File>
+            <File>
+              <FileName>UART.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>.\UART.c</FilePath>
+            </File>
+            <File>
+              <FileName>FIFO.h</FileName>
+              <FileType>5</FileType>
+              <FilePath>.\FIFO.h</FilePath>
+            </File>
+            <File>
+              <FileName>os.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>.\os.c</FilePath>
+            </File>
+            <File>
+              <FileName>PLL.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>.\PLL.c</FilePath>
+            </File>
+            <File>
+              <FileName>osasm.s</FileName>
+              <FileType>2</FileType>
+              <FilePath>.\osasm.s</FilePath>
             </File>
           </Files>
         </Group>

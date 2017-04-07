@@ -23,6 +23,8 @@
 #include <stdint.h>
 #include "../inc/tm4c123gh6pm.h"
 
+#include "Timer3.h"
+
 void (*PeriodicTask)(void);   // user function
 
 // ***************** Timer3_Init ****************
