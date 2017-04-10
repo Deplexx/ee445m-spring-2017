@@ -53,6 +53,7 @@ void send_pulse(void);
 
 uint32_t Period;              // (1/clock) units
 uint32_t First;               // Timer0A first edge
+uint32_t Distance;
 int32_t Done;                 // set each rising
 // max period is (2^24-1)*12.5ns = 209.7151ms
 // min period determined by time to run ISR, which is about 1us
@@ -78,13 +79,13 @@ void PeriodMeasure_Init(void){
   TIMER0_CFG_R = TIMER_CFG_16_BIT; // configure for 16-bit timer mode
                                    // configure for 24-bit capture mode
   TIMER0_TAMR_R = (TIMER_TAMR_TACMR|TIMER_TAMR_TAMR_CAP);
-                                   // configure for rising edge event
-  TIMER0_CTL_R &= ~(TIMER_CTL_TAEVENT_POS|0xC);
+                                   // configure for both edges event
+  TIMER0_CTL_R |= TIMER_CTL_TAEVENT_BOTH;
   TIMER0_TAILR_R = TIMER_TAILR_TAILRL_M;// start value
   TIMER0_TAPR_R = 0xFF;            // activate prescale, creating 24-bit
   TIMER0_IMR_R |= TIMER_IMR_CAEIM; // enable capture match interrupt
   TIMER0_ICR_R = TIMER_ICR_CAECINT;// clear timer0A capture match flag
-  TIMER0_CTL_R |= TIMER_CTL_TAEN;  // enable timer0A 16-b, +edge timing, interrupts
+  TIMER0_CTL_R |= TIMER_CTL_TAEN;  // enable timer0A 16-b, both edges timing, interrupts
                                    // Timer0A=priority 2
   NVIC_PRI4_R = (NVIC_PRI4_R&0x00FFFFFF)|0x40000000; // top 3 bits
   NVIC_EN0_R = NVIC_EN0_INT19;     // enable interrupt 19 in NVIC
@@ -95,9 +96,11 @@ void Timer0A_Handler(void){
   PF2 = PF2^0x04;  // toggle PF2
   PF2 = PF2^0x04;  // toggle PF2
   TIMER0_ICR_R = TIMER_ICR_CAECINT;// acknowledge timer0A capture match
-  Period = (First - TIMER0_TAR_R)&0xFFFFFF;// 24 bits, 12.5ns resolution
-  First = TIMER0_TAR_R;            // setup for next
-  Done = 1;
+	if(!(GPIO_PORTB_DATA_R & 0x06)) { //ultrasonic sensor echo just arrived; calculate distance
+		Period = (First - TIMER0_TAR_R)&0xFFFFFF;// 24 bits, 12.5ns resolution
+		Distance = (170 * Period) / 800000; //units=cm
+		Done = 1;
+	} else {First = TIMER0_TAR_R; Done = 0; }            // setup for next
   PF2 = PF2^0x04;  // toggle PF2
 }
 
