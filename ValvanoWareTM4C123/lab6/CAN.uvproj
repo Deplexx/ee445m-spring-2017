@@ -414,16 +414,6 @@
               <FilePath>.\Timer3.c</FilePath>
             </File>
             <File>
-              <FileName>can0.c</FileName>
-              <FileType>1</FileType>
-              <FilePath>.\can0.c</FilePath>
-            </File>
-            <File>
-              <FileName>driverlib-cm4f.lib</FileName>
-              <FileType>4</FileType>
-              <FilePath>..\driverlib\rvmdk-cm4f\driverlib-cm4f.lib</FilePath>
-            </File>
-            <File>
               <FileName>PeriodMeasure.c</FileName>
               <FileType>1</FileType>
               <FilePath>.\PeriodMeasure.c</FilePath>
@@ -457,6 +447,26 @@
               <FileName>osasm.s</FileName>
               <FileType>2</FileType>
               <FilePath>.\osasm.s</FilePath>
+            </File>
+            <File>
+              <FileName>uart_interp.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>.\uart_interp.c</FilePath>
+            </File>
+            <File>
+              <FileName>lcd_cmdLine.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>.\lcd_cmdLine.c</FilePath>
+            </File>
+            <File>
+              <FileName>sensor_cmdLine.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>.\sensor_cmdLine.c</FilePath>
+            </File>
+            <File>
+              <FileName>Retarget.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>.\Retarget.c</FilePath>
             </File>
           </Files>
         </Group>

@@ -28,6 +28,7 @@
 #include "os.h"
 #include "PLL.h"
 #include "Timer3.h"
+#include "USSensor.h"
 
 #define NVIC_EN0_INT19          0x00080000  // Interrupt 19 enable
 #define TIMER_TAMR_TACMR        0x00000004  // GPTM TimerA Capture Mode
@@ -49,15 +50,21 @@ long StartCritical (void);    // previous I bit, disable interrupts
 void EndCritical(long sr);    // restore I bit to previous value
 void WaitForInterrupt(void);  // low power mode
 
-void send_pulse(void);
+void Delay5us(void);
+static uint32_t Period;              // (1/clock) units
+static uint32_t First;               // Timer0A first edge
+volatile static uint32_t Distance;
 
-uint32_t Period;              // (1/clock) units
-uint32_t First;               // Timer0A first edge
-uint32_t Distance;
 int32_t Done;                 // set each rising
+
+uint32_t USSensor_GetDistance(void) {
+	while(Done != 1) {}
+	return Distance;
+}
+
 // max period is (2^24-1)*12.5ns = 209.7151ms
 // min period determined by time to run ISR, which is about 1us
-void PeriodMeasure_Init(void){
+void USSensor_Init(void){
   SYSCTL_RCGCTIMER_R |= 0x01;// activate timer0    
   SYSCTL_RCGCGPIO_R |= 0x22;       // activate port B and port F
                                    // allow time to finish activating
@@ -90,13 +97,13 @@ void PeriodMeasure_Init(void){
   NVIC_PRI4_R = (NVIC_PRI4_R&0x00FFFFFF)|0x40000000; // top 3 bits
   NVIC_EN0_R = NVIC_EN0_INT19;     // enable interrupt 19 in NVIC
 	
-	Timer3_Init(&send_pulse, TIME_1MS);
+  Timer3_Init(&USSensor_SendPulse, TIME_1MS * 10);
 }
 void Timer0A_Handler(void){
   PF2 = PF2^0x04;  // toggle PF2
   PF2 = PF2^0x04;  // toggle PF2
   TIMER0_ICR_R = TIMER_ICR_CAECINT;// acknowledge timer0A capture match
-	if(!(GPIO_PORTB_DATA_R & 0x06)) { //ultrasonic sensor echo just arrived; calculate distance
+	if(!(GPIO_PORTB_DATA_R & 0x40)) { //ultrasonic sensor echo just arrived; calculate distance
 		Period = (First - TIMER0_TAR_R)&0xFFFFFF;// 24 bits, 12.5ns resolution
 		Distance = (170 * Period) / 800000; //units=cm
 		Done = 1;
@@ -107,7 +114,7 @@ void Timer0A_Handler(void){
 //debug code
 int debug_periodic_measure(void){           
   PLL_Init();              // 80 MHz clock
-  PeriodMeasure_Init();            // initialize 24-bit timer0A in capture mode
+  USSensor_Init();            // initialize 24-bit timer0A in capture mode
   EnableInterrupts();
   while(1){
     WaitForInterrupt();
@@ -121,11 +128,13 @@ void dn_pulse(void);
 void set_pb6_gpio_out(void);
 void set_pb6_input_capture(void);
 
-void send_pulse(void) {
+void USSensor_SendPulse(void) {
 	long sav = StartCritical();
-	up_pulse();
-	for(int i = 0; i < 400; ++i){}
-  dn_pulse();
+	if(Done) {
+		up_pulse();
+		Delay5us();
+		dn_pulse();
+	}
 	EndCritical(sav);
 }
 
@@ -149,4 +158,16 @@ void set_pb6_input_capture(void) {
 	GPIO_PORTB_DIR_R &= ~0x40;       // make PB6 in
 	GPIO_PORTB_AFSEL_R |= 0x40;      // disable alt funct on PB6/T0CCP0
 	GPIO_PORTB_PCTL_R = (GPIO_PORTB_PCTL_R&0xF0FFFFFF)+0x07000000; // enable input capture
+}
+
+__asm void
+delay(uint32_t ulCount)
+{
+	subs    r0, #1
+	bne     delay
+	bx      lr
+}
+
+void Delay5us(void) {
+	delay(133);
 }

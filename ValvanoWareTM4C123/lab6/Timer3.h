@@ -24,6 +24,8 @@
 #ifndef __TIMER3INTS_H__ // do not include more than once
 #define __TIMER3INTS_H__
 
+#include <stdint.h>
+
 // ***************** Timer3_Init ****************
 // Activate Timer3 interrupts to run user task periodically
 // Inputs:  task is a pointer to a user function

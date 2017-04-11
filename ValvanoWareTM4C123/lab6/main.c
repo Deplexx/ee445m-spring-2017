@@ -32,37 +32,27 @@
 // MCP2551 Pin7 CANH ---- to other CANH on network 
 // MCP2551 Pin8 RS   ---- ground, Slope-Control Input (maximum slew rate)
 // 120 ohm across CANH, CANL on both ends of network
-#include <stdint.h>
+//#include <stdint.h>
 #include "PLL.h"
 #include "Timer3.h"
 #include "can0.h"
 #include "../inc/tm4c123gh6pm.h"
 #include "OS.h"
 #include "ST7735.h"
+#include "USSensor.h"
+#include "uart_interp.h"
 
 #define PF0       (*((volatile uint32_t *)0x40025004))
 #define PF4       (*((volatile uint32_t *)0x40025040))
 
-
-void DisableInterrupts(void); // Disable interrupts
-void EnableInterrupts(void);  // Enable interrupts
-void WaitForInterrupt(void);  // low power mode
-uint8_t XmtData[4];
-uint8_t RcvData[4];
-uint32_t RcvCount=0;
-uint8_t sequenceNum=0;  
-
-void UserTask(void){
-  XmtData[0] = PF0<<1;  // 0 or 2
-  XmtData[1] = PF4>>2;  // 0 or 4
-  XmtData[2] = 0;       // unassigned field
-  XmtData[3] = sequenceNum;  // sequence count
-  CAN0_SendData(XmtData);
-  sequenceNum++;
-}
+void StartOS(void);
 
 int main(void){
+	PLL_Init();
   OS_Init();
+	USSensor_Init();
   ST7735_InitR(INITR_REDTAB);
-  ST7735_FillScreen(0);
+  ST7735_FillScreen(0);	
+	OS_AddThread(&Interpreter, 128, 0);
+	StartOS();
 }
