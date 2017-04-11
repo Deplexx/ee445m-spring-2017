@@ -53,51 +53,44 @@ void WaitForInterrupt(void);  // low power mode
 void Delay5us(void);
 static uint32_t Period;              // (1/clock) units
 static uint32_t First;               // Timer0A first edge
-volatile static uint32_t Distance;
+static volatile uint32_t Distance;
 
-int32_t Done;                 // set each rising
+static volatile int32_t Done = 1;                 // set either edge
 
-uint32_t USSensor_GetDistance(void) {
-	while(Done != 1) {}
+uint32_t USSensor_GetDistance(void) {	
 	return Distance;
 }
 
 // max period is (2^24-1)*12.5ns = 209.7151ms
 // min period determined by time to run ISR, which is about 1us
 void USSensor_Init(void){
-  SYSCTL_RCGCTIMER_R |= 0x01;// activate timer0    
-  SYSCTL_RCGCGPIO_R |= 0x22;       // activate port B and port F
-                                   // allow time to finish activating
-  First = 0;                       // first will be wrong
-  Done = 0;                        // set on subsequent
+	long sav = StartCritical();
+  SYSCTL_RCGCTIMER_R |= 0x01;// activate timer0
+  SYSCTL_RCGCGPIO_R |= 0x02; // activate port B
+  while((SYSCTL_PRGPIO_R&0x0002) == 0){};// ready?
+  GPIO_PORTB_DIR_R |= 0x80;        // make PB7 output
   GPIO_PORTB_DIR_R &= ~0x40;       // make PB6 in
-  GPIO_PORTB_AFSEL_R |= 0x40;      // enable alt funct on PB6/T0CCP0
-  GPIO_PORTB_DEN_R |= 0x40;        // enable digital I/O on PB6
-                                   // configure PB6 as T0CCP0
-  GPIO_PORTB_PCTL_R = (GPIO_PORTB_PCTL_R&0xF0FFFFFF)+0x07000000;
-  GPIO_PORTB_AMSEL_R &= ~0x40;     // disable analog functionality on PB6
-  GPIO_PORTF_DIR_R |= 0x04;        // make PF2 out (PF2 built-in blue LED)
-  GPIO_PORTF_AFSEL_R &= ~0x04;     // disable alt funct on PF2
-  GPIO_PORTF_DEN_R |= 0x04;        // enable digital I/O on PF2
-                                   // configure PF2 as GPIO
-  GPIO_PORTF_PCTL_R = (GPIO_PORTF_PCTL_R&0xFFFFF0FF)+0x00000000;
-  GPIO_PORTF_AMSEL_R = 0;          // disable analog functionality on PF
+  GPIO_PORTB_AFSEL_R |= 0x40;      // enable alt funct on PB6
+  GPIO_PORTB_AFSEL_R &= ~0x80;     // disable alt funct on PB7
+  GPIO_PORTB_DEN_R |= 0xC0;        // enable PB6 as T0CCP0
+  GPIO_PORTB_PCTL_R = (GPIO_PORTB_PCTL_R&0x00FFFFFF)+0x07000000;
+  GPIO_PORTB_AMSEL_R &= ~0xC0;     // disable analog functionality on PB6
   TIMER0_CTL_R &= ~TIMER_CTL_TAEN; // disable timer0A during setup
   TIMER0_CFG_R = TIMER_CFG_16_BIT; // configure for 16-bit timer mode
-                                   // configure for 24-bit capture mode
-  TIMER0_TAMR_R = (TIMER_TAMR_TACMR|TIMER_TAMR_TAMR_CAP);
-                                   // configure for both edges event
-  TIMER0_CTL_R |= TIMER_CTL_TAEVENT_BOTH;
-  TIMER0_TAILR_R = TIMER_TAILR_TAILRL_M;// start value
+  TIMER0_TAMR_R = (TIMER_TAMR_TACMR|TIMER_TAMR_TAMR_CAP);   // 24-bit capture         
+  TIMER0_CTL_R |= TIMER_CTL_TAEVENT_BOTH;// configure for both edges
+  TIMER0_TAILR_R = TIMER_TAILR_M;  // max start value
   TIMER0_TAPR_R = 0xFF;            // activate prescale, creating 24-bit
   TIMER0_IMR_R |= TIMER_IMR_CAEIM; // enable capture match interrupt
   TIMER0_ICR_R = TIMER_ICR_CAECINT;// clear timer0A capture match flag
-  TIMER0_CTL_R |= TIMER_CTL_TAEN;  // enable timer0A 16-b, both edges timing, interrupts
+  TIMER0_CTL_R |= TIMER_CTL_TAEN;  // enable timer0A 16-b, +edge timing, interrupts
                                    // Timer0A=priority 2
   NVIC_PRI4_R = (NVIC_PRI4_R&0x00FFFFFF)|0x40000000; // top 3 bits
-  NVIC_EN0_R = NVIC_EN0_INT19;     // enable interrupt 19 in NVIC
+  NVIC_EN0_R = NVIC_EN0_INT19;        // enable interrupt 19 in NVIC
 	
   Timer3_Init(&USSensor_SendPulse, TIME_1MS * 10);
+	
+	EndCritical(sav);
 }
 void Timer0A_Handler(void){
   PF2 = PF2^0x04;  // toggle PF2
@@ -156,8 +149,9 @@ void dn_pulse(void) {
 
 void set_pb6_input_capture(void) {
 	GPIO_PORTB_DIR_R &= ~0x40;       // make PB6 in
-	GPIO_PORTB_AFSEL_R |= 0x40;      // disable alt funct on PB6/T0CCP0
+	GPIO_PORTB_AFSEL_R |= 0x40;      // enable alt funct on PB6/T0CCP0
 	GPIO_PORTB_PCTL_R = (GPIO_PORTB_PCTL_R&0xF0FFFFFF)+0x07000000; // enable input capture
+	TIMER0_ICR_R = TIMER_ICR_CAECINT;
 }
 
 __asm void
