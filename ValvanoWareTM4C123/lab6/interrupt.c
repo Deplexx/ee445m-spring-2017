@@ -29,6 +29,9 @@
 //
 //*****************************************************************************
 
+#include <stdint.h>
+#define PART_TM4C123GH6PM
+
 #include "../inc/hw_ints.h"
 #include "../inc/hw_nvic.h"
 #include "../inc/hw_types.h"
@@ -195,7 +198,7 @@ IntMasterDisable(void)
 //
 //*****************************************************************************
 void
-IntRegister(unsigned long ulInterrupt, void (*pfnHandler)(void))
+IntRegister(uint32_t ulInterrupt, void (*pfnHandler)(void))
 {
     unsigned long ulIdx, ulValue;
 
@@ -254,7 +257,7 @@ IntRegister(unsigned long ulInterrupt, void (*pfnHandler)(void))
 //
 //*****************************************************************************
 void
-IntUnregister(unsigned long ulInterrupt)
+IntUnregister(uint32_t ulInterrupt)
 {
     //
     // Check the arguments.
@@ -284,7 +287,7 @@ IntUnregister(unsigned long ulInterrupt)
 //
 //*****************************************************************************
 void
-IntPriorityGroupingSet(unsigned long ulBits)
+IntPriorityGroupingSet(uint32_t ulBits)
 {
     //
     // Check the arguments.
@@ -307,7 +310,7 @@ IntPriorityGroupingSet(unsigned long ulBits)
 //! \return The number of bits of preemptable priority.
 //
 //*****************************************************************************
-unsigned long
+uint32_t
 IntPriorityGroupingGet(void)
 {
     unsigned long ulLoop, ulValue;
@@ -362,7 +365,7 @@ IntPriorityGroupingGet(void)
 //
 //*****************************************************************************
 void
-IntPrioritySet(unsigned long ulInterrupt, unsigned char ucPriority)
+IntPrioritySet(uint32_t ulInterrupt, uint8_t ucPriority)
 {
     unsigned long ulTemp;
 
@@ -393,8 +396,8 @@ IntPrioritySet(unsigned long ulInterrupt, unsigned char ucPriority)
 //! specified.
 //
 //*****************************************************************************
-long
-IntPriorityGet(unsigned long ulInterrupt)
+int32_t
+IntPriorityGet(uint32_t ulInterrupt)
 {
     //
     // Check the arguments.
@@ -422,7 +425,7 @@ IntPriorityGet(unsigned long ulInterrupt)
 //
 //*****************************************************************************
 void
-IntEnable(unsigned long ulInterrupt)
+IntEnable(uint32_t ulInterrupt)
 {
     //
     // Check the arguments.
@@ -490,7 +493,7 @@ IntEnable(unsigned long ulInterrupt)
 //
 //*****************************************************************************
 void
-IntDisable(unsigned long ulInterrupt)
+IntDisable(uint32_t ulInterrupt)
 {
     //
     // Check the arguments.
@@ -562,7 +565,7 @@ IntDisable(unsigned long ulInterrupt)
 //
 //*****************************************************************************
 void
-IntPendSet(unsigned long ulInterrupt)
+IntPendSet(uint32_t ulInterrupt)
 {
     //
     // Check the arguments.
@@ -624,7 +627,7 @@ IntPendSet(unsigned long ulInterrupt)
 //
 //*****************************************************************************
 void
-IntPendClear(unsigned long ulInterrupt)
+IntPendClear(uint32_t ulInterrupt)
 {
     //
     // Check the arguments.

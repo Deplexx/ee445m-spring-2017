@@ -47,12 +47,44 @@
 
 void StartOS(void);
 
+void canGetThread(void){
+  uint8_t data[4];
+  CAN0_GetMailNonBlock(data);
+  ST7735_Message(0, 0, "IR0: ", data[0]);
+  ST7735_Message(0, 1, "IR0: ", data[1]);
+  ST7735_Message(0, 2, "IR0: ", data[2]);
+  ST7735_Message(0, 3, "IR0: ", data[3]);
+}
+
+void canPutThread(void){
+  uint8_t data[4];
+  uint32_t usdist = USSensor_GetDistance();
+  data[0] = usdist & 0x000000FF;
+  data[1] = (usdist & 0x0000FF00) >> 8;
+  data[2] = (usdist & 0x00FF0000) >> 16;
+  data[3] = (usdist & 0xFF000000) >> 24;
+  CAN0_SendData(data);
+}
+
+void canThread(void){
+  static int getPut = 0;
+  if(getPut){
+    canGetThread();
+    getPut = 0;
+  } else {
+    canPutThread();
+    getPut = 1;
+  }
+}
+
 int main(void){
 	PLL_Init();
   OS_Init();
 	USSensor_Init();
+  CAN0_Open();
   ST7735_InitR(INITR_REDTAB);
   ST7735_FillScreen(0);	
 	OS_AddThread(&Interpreter, 128, 0);
+  OS_AddPeriodicThread(&canThread, 1600000, 0);
 	StartOS();
 }

@@ -30,11 +30,9 @@
 #define __CAN0_H__
 #define CAN_BITRATE             1000000
 
-#include <stdint.h>
-
 // reverse these IDs on the other microcontroller
-#define RCV_ID 2
-#define XMT_ID 4
+#define RCV_ID 4
+#define XMT_ID 2
 // Returns true if receive data is available
 //         false if no receive data ready
 int CAN0_CheckMail(void);

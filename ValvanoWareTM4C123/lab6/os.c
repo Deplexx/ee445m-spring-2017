@@ -549,6 +549,7 @@ void PeriodicTask_Init(void) {
   volatile int delay = SYSCTL_RCGCTIMER_R;
 }
 
+/*
 void PeriodicTask1_Init(unsigned long prd, unsigned long pri) {
 	PeriodicTask_Init();
 	TIMER5_CTL_R = 0x00000000;    // 1) disable TIMER5 during setup
@@ -572,9 +573,53 @@ void PeriodicTask2_Init(unsigned long prd, unsigned long pri) {
 	NVIC_PRI23_R = (NVIC_PRI23_R&0xFFFFFF00)|(pri<<13);
 	NVIC_EN2_R |= 1<<(93%32);
 }
+*/
+void Timer5_Init(unsigned long period, unsigned long priority){
+  SYSCTL_RCGCTIMER_R |= 0x20;   // 0) activate TIMER5
+  volatile int delay = SYSCTL_RCGCTIMER_R;
+  TIMER5_CTL_R = 0x00000000;    // 1) disable TIMER4A during setup
+  TIMER5_CFG_R = 0x00000000;    // 2) configure for 32-bit mode
+  TIMER5_TAMR_R = 0x00000002;   // 3) configure for periodic mode, default down-count settings
+  TIMER5_TAILR_R = period-1;    // 4) reload value
+  TIMER5_TAPR_R = 0;            // 5) bus clock resolution
+  TIMER5_ICR_R = 0x00000001;    // 6) clear TIMER4 timeout flag
+  TIMER5_IMR_R = 0x00000001;    // 7) arm timeout interrupt
+	NVIC_PRI23_R = (NVIC_PRI23_R&0xFFFFFF00)|(priority<<5); //23 = 92/4, 5 = (92%4)*8+5
+// interrupts enabled in the main program after all devices initialized
+  NVIC_EN2_R |= 1<<(92%32);      // 9) enable IRQ 108/92 in NVIC; 2 = 92/32 = 2, 2*32 = 64; 70 = 86 - 16
+}
 
 int OS_AddPeriodicThread(void(*task)(void),unsigned long period, unsigned long priority){
+  if(PeriodicTask1 == 0){
+    PeriodicTask1 = task;
+    Timer5_Init(period, priority);
+    PeriodicTaskPeriod1 = period;
+    TIMER5_CTL_R = 0x00000001;    // 10) enable TIMER3A
+    return 0;
+  } else if(PeriodicTask2 == 0){
+    PeriodicTask2 = task;
+    Timer5_Init(period, priority);
+    PeriodicTaskPeriod2 = period;
+    TIMER5_CTL_R = 0x00000001;    // 10) enable TIMER3A
+    return 0;
+  } else {
+    return 1;
+  }
+}
+
+void Timer5A_Handler(void){
+  TIMER5_ICR_R = TIMER_ICR_TATOCINT;// acknowledge TIMER5A timeout
+  #if DEBUG
+  addTInfo(pStart);
+  PeriodicTaskWrapper1();
+  addTInfo(pStop);
+  #else
+  (*PeriodicTask1)();                // execute user task
+  #endif
+}
+
 /*
+int OS_AddPeriodicThread(void(*task)(void),unsigned long period, unsigned long priority){
   SYSCTL_RCGCTIMER_R |= 0x08;   // 0) activate TIMER3
   PeriodicTask = task;          // user function
   TIMER3_CTL_R = 0x00000000;    // 1) disable TIMER3A during setup
@@ -594,7 +639,7 @@ int OS_AddPeriodicThread(void(*task)(void),unsigned long period, unsigned long p
 
   TIMER3_CTL_R = 0x00000001;    // 10) enable TIMER3A
 	return 0;
-*/
+
   if(PeriodicTask1 == 0){
     PeriodicTask1 = task;          // user function
     PeriodicTask1_Init(period, priority);
@@ -633,6 +678,8 @@ void Timer5B_Handler(void){
   (*PeriodicTask2)();                // execute user task
 #endif
 }
+*/
+
 
 
 //******** OS_AddSW1Task *************** 
