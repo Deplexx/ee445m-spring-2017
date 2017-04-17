@@ -32,7 +32,7 @@
 // MCP2551 Pin7 CANH ---- to other CANH on network 
 // MCP2551 Pin8 RS   ---- ground, Slope-Control Input (maximum slew rate)
 // 120 ohm across CANH, CANL on both ends of network
-//#include <stdint.h>
+#include <stdint.h>
 #include "PLL.h"
 #include "Timer3.h"
 #include "can0.h"
@@ -41,12 +41,14 @@
 #include "ST7735.h"
 #include "USSensor.h"
 #include "uart_interp.h"
+#include "IR.h"
 
 #define PF0       (*((volatile uint32_t *)0x40025004))
 #define PF4       (*((volatile uint32_t *)0x40025040))
 
 void StartOS(void);
 
+/*
 void canGetThread(void){
   uint8_t data[4];
   CAN0_GetMailNonBlock(data);
@@ -76,15 +78,130 @@ void canThread(void){
     getPut = 1;
   }
 }
+*/
+
+uint32_t IRdata[4];
+static uint8_t data[4];
+uint32_t displayFlag;
+uint32_t every10ms;
+
+void lcdDisplay(void){
+  uint32_t usdist = USSensor_GetDistance();
+  ST7735_Message(0, 0, "IR0: ", IRdata[0]);
+  ST7735_Message(0, 1, "IR1: ", IRdata[1]);
+  ST7735_Message(0, 2, "IR2: ", IRdata[2]);
+  ST7735_Message(0, 3, "IR3: ", IRdata[3]);
+  ST7735_Message(1, 0, "US0: ", usdist);
+  ST7735_Message(1, 3, "State: ", data[0]); 
+  displayFlag = 0;
+  OS_Kill();
+}
+
+void inputCapture(void){
+  IR_In(&IRdata[0]);
+  if(every10ms==0)
+    USSensor_SendPulse(); //5us
+  every10ms++;
+  if(every10ms==10)
+    every10ms = 0;
+  if(displayFlag==0){
+    displayFlag = 1;
+    OS_AddThread(&lcdDisplay,128,1);
+  }
+}
+
+void driveThread(void){
+  OS_Sleep(5000);
+  static uint8_t data[4];
+  //increase speed
+  data[0] = 2; data[1] = 0; data[2] = 0; data[3] = 0;
+  for(int k=0; k<1000; k++){
+    CAN0_SendData(data);
+    OS_Sleep(10);
+  }
+  //stop????
+  data[0] = 0; data[1] = 0; data[2] = 0; data[3] = 0;
+  while(1){
+    CAN0_SendData(data);
+    OS_Sleep(10);
+  }
+}
+
+void driveThread2(void){
+  data[0] = 2; data[1] = 0; data[2] = 0; data[3] = 0;
+  //accelerate
+  for(int k=0; k<40; k++){
+    CAN0_SendData(data);
+    OS_Sleep(10);
+  }
+  
+  while(1){
+    /*
+    int diff = IRdata[0] - IRdata[1];
+    
+    if(diff<0)
+      diff = -diff;
+    
+    if(diff>-10){
+      data[0] = 1; //do nothing
+      CAN0_SendData(data);
+    } else {
+      data[0] = 7; //drift left, same speed
+      CAN0_SendData(data);
+      OS_Sleep(100);
+    }
+    */
+    /*
+    if(IRdata[0]-IRdata[1]<-20){
+      data[0] = 7; //drift left
+      CAN0_SendData(data);
+      OS_Sleep(200);
+    } else if(IRdata[0]-IRdata[1]>20){
+      data[0] = 4; //drift right
+      CAN0_SendData(data);
+      OS_Sleep(200);
+    } else {
+      data[0] = 1; //do nothing
+      CAN0_SendData(data);
+    }
+    */
+    
+    int diff = IRdata[0] - IRdata[1];
+    
+    if(diff<-10){
+      data[0] = 7; //drift left
+      CAN0_SendData(data);
+    } else if(diff>10){
+      data[0] = 4; //drift right
+      CAN0_SendData(data);
+    } else if(IRdata[0]<140){
+      data[0] = 4; //drift right
+      CAN0_SendData(data);
+    } else if(IRdata[0]>160){
+      data[0] = 7; //drift left
+      CAN0_SendData(data);
+    } else {
+      data[0] = 1; //drift straight
+      CAN0_SendData(data);
+    }
+    OS_Sleep(100);
+  }
+}
 
 int main(void){
-	PLL_Init();
   OS_Init();
 	USSensor_Init();
   CAN0_Open();
+  IR_Init();
   ST7735_InitR(INITR_REDTAB);
-  ST7735_FillScreen(0);	
-	OS_AddThread(&Interpreter, 128, 0);
-  OS_AddPeriodicThread(&canThread, 1600000, 0);
-	StartOS();
+  ST7735_FillScreen(0);
+  
+  displayFlag = 0;
+  every10ms = 0;
+  
+	OS_AddThread(&Interpreter, 128, 7);
+  OS_AddThread(&driveThread2, 128, 0);
+  OS_AddPeriodicThread(&inputCapture,80000,1);
+  //OS_AddPeriodicThread(&canThread, 1600000, 0);
+	OS_Launch(TIME_1MS*10);
 }

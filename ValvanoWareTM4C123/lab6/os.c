@@ -290,17 +290,8 @@ int OS_AddThreads(void(*task0)(void),
 int OS_AddThread(void(*task)(void), unsigned long stackSize, unsigned long priority){
   int32_t status;
   status = StartCritical();
-//  SetInitialStack(numThreads); Stacks[numThreads][STACKSIZE-2] = (int32_t)(task); // set PC
-//  tcbs[numThreads].id = currentId;
-//  tcbs[numThreads].sleep = 0;
   
   if(numThreads>0 && numThreads<MAXTHREADS){
-//    tcbs[numThreads-1].next = &tcbs[numThreads];
-//    tcbs[numThreads].next = &tcbs[0];
-//    tcbs[numThreads].prev = &tcbs[numThreads-1];
-//    tcbs[0].prev = &tcbs[numThreads]; // 2 points to 0
-    
-    //find open tcb spot
     int spot;
     for(int k=0; k<MAXTHREADS; k++){
       if(!(tcbs[k].active)){

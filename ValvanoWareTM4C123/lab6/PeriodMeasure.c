@@ -88,7 +88,7 @@ void USSensor_Init(void){
   NVIC_PRI4_R = (NVIC_PRI4_R&0x00FFFFFF)|0x40000000; // top 3 bits
   NVIC_EN0_R = NVIC_EN0_INT19;        // enable interrupt 19 in NVIC
 	
-  Timer3_Init(&USSensor_SendPulse, TIME_1MS * 10);
+  //Timer3_Init(&USSensor_SendPulse, TIME_1MS*10);
 	
 	EndCritical(sav);
 }
