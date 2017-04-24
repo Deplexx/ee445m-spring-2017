@@ -78,6 +78,8 @@ static void init_front(void);
 static void init_left(void);
 static void init_right(void);
 
+static void send_pulse(int n);
+
 // max period is (2^24-1)*12.5ns = 209.7151ms
 // min period determined by time to run ISR, which is about 1us
 void USSensor_Init(void){
@@ -212,31 +214,32 @@ void set_pbn_gpio_out(int n);
 void set_pbn_input_capture(int n);
 
 void USSensor_SendFrontPulse(void) {
-	long sav = StartCritical();
-	if(Done[FRONT]) {
-		pbn_up_pulse(6);
-		Delay5us();
-		pbn_dn_pulse(6);
-	}
-	EndCritical(sav);
+	send_pulse(6);
 }
 
 void USSensor_SendLeftPulse(void) {
-	long sav = StartCritical();
-	if(Done[LEFT]) {
-		pbn_up_pulse(4);
-		Delay5us();
-		pbn_dn_pulse(4);
-	}
-	EndCritical(sav);
+	send_pulse(4);
 }
 
 void USSensor_SendRightPulse(void) {
+	send_pulse(2);
+}
+
+static void send_pulse(int n) {
+	int dev;
+	switch(n) {
+		case 6:
+			dev = FRONT;
+		case 4:
+			dev = LEFT;
+		case 2:
+			dev = RIGHT;
+	}
 	long sav = StartCritical();
-	if(Done[RIGHT]) {
-		pbn_up_pulse(2);
+	if(Done[dev]) {
+		pbn_up_pulse(n);
 		Delay5us();
-		pbn_dn_pulse(2);
+		pbn_dn_pulse(n);
 	}
 	EndCritical(sav);
 }
@@ -284,10 +287,6 @@ void set_pbn_input_capture(int n) {
 			TIMER3_ICR_R = TIMER_ICR_CAECINT;
 			break;
 	}
-}
-
-static void send_pulse(int n) {
-
 }
 
 __asm void
