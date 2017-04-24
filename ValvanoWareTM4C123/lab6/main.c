@@ -84,6 +84,7 @@ uint32_t IRdata[4];
 static uint8_t data[4];
 uint32_t displayFlag;
 uint32_t every10ms;
+void stateMachine(void);
 
 void lcdDisplay(void){
   uint32_t usdist = USSensor_GetDistance();
@@ -108,6 +109,7 @@ void inputCapture(void){
     displayFlag = 1;
     OS_AddThread(&lcdDisplay,128,1);
   }
+  stateMachine();
 }
 
 void driveThread(void){
@@ -167,25 +169,89 @@ void driveThread2(void){
     */
     
     int diff = IRdata[0] - IRdata[1];
+    int avg = (IRdata[0] + IRdata[1])/2;
     
-    if(diff<-10){
+    if(avg>250){
       data[0] = 7; //drift left
       CAN0_SendData(data);
-    } else if(diff>10){
+    } else if(diff<-25){
+      data[0] = 7; //drift left
+      CAN0_SendData(data);
+    } else if(diff>25){
       data[0] = 4; //drift right
       CAN0_SendData(data);
-    } else if(IRdata[0]<140){
+    } else if(IRdata[0]<100){
       data[0] = 4; //drift right
       CAN0_SendData(data);
-    } else if(IRdata[0]>160){
+    } else if(IRdata[0]>180){
       data[0] = 7; //drift left
       CAN0_SendData(data);
     } else {
       data[0] = 1; //drift straight
       CAN0_SendData(data);
     }
-    OS_Sleep(100);
+    //OS_Sleep(20);
   }
+}
+
+void canSend(int s){
+  data[0] = s;
+  CAN0_SendData(data);
+}
+
+enum STATES {SPEEDUP,LWALL,LTURN};
+
+void stateMachine(void){
+  static int diff, avg;
+  static int wait = 50;
+  static int targetDist = 130;
+  static int state = SPEEDUP;
+  static int nextState;
+  
+  diff = IRdata[0] - IRdata[1];
+  avg = (IRdata[0] + IRdata[1])/2;
+
+  nextState = state;
+  
+  switch(state){
+    case SPEEDUP:
+    canSend(2);
+    wait--;
+    
+    if(wait<=0){
+      nextState = LWALL;
+    }
+    break;
+    case LWALL:
+     if(IRdata[0]<targetDist && IRdata[1]>targetDist){
+      canSend(7); //drift left
+    } else if(IRdata[0]>targetDist && IRdata[1]<targetDist){
+      canSend(4); //drift right
+    } else if(IRdata[0]>targetDist && IRdata[1]>targetDist){
+      canSend(7); //drift left
+    } else if(IRdata[0]<targetDist && IRdata[1]<targetDist){
+      canSend(4); //drift right
+    } else {
+      canSend(1);//drift straight
+    }
+    
+    if(IRdata[1] > targetDist*2){
+      nextState = LTURN;
+    }
+    break;
+    case LTURN:
+    canSend(13);
+    
+    if(IRdata[1] < targetDist){
+      nextState = LWALL;
+    }
+    break;
+    default:
+    
+    break;
+  }
+  
+  state = nextState;
 }
 
 int main(void){
@@ -200,7 +266,7 @@ int main(void){
   every10ms = 0;
   
 	OS_AddThread(&Interpreter, 128, 7);
-  OS_AddThread(&driveThread2, 128, 0);
+  //OS_AddThread(&driveThread2, 128, 0);
   OS_AddPeriodicThread(&inputCapture,80000,1);
   //OS_AddPeriodicThread(&canThread, 1600000, 0);
 	OS_Launch(TIME_1MS*10);
