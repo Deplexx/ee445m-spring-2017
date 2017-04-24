@@ -87,7 +87,7 @@ uint32_t every10ms;
 void stateMachine(void);
 
 void lcdDisplay(void){
-  uint32_t usdist = USSensor_GetDistance();
+  uint32_t usdist = USSensor_GetFrontDistance();
   ST7735_Message(0, 0, "IR0: ", IRdata[0]);
   ST7735_Message(0, 1, "IR1: ", IRdata[1]);
   ST7735_Message(0, 2, "IR2: ", IRdata[2]);
@@ -101,7 +101,7 @@ void lcdDisplay(void){
 void inputCapture(void){
   IR_In(&IRdata[0]);
   if(every10ms==0)
-    USSensor_SendPulse(); //5us
+    USSensor_SendFrontPulse(); //5us
   every10ms++;
   if(every10ms==10)
     every10ms = 0;
