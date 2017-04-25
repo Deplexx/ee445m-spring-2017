@@ -1,4 +1,4 @@
-#include "atan.h"
+#include "math2.h"
 #include "get_dev_angle.h"
 
 
