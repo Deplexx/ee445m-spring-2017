@@ -39,7 +39,7 @@
 #include "math2.h"
 #include "OS.h"
 #include "ST7735.h"
-#include "USSensor.h"
+#include "US.h"
 #include "uart_interp.h"
 #include "IR.h"
 
@@ -81,6 +81,7 @@ void canThread(void){
 */
 
 uint32_t IRdata[4];
+uint32_t USdata[3];
 static uint8_t data[4];
 uint32_t displayFlag;
 uint32_t every10ms;
@@ -88,10 +89,6 @@ unsigned long calcTime;
 void stateMachine(void);
 
 void lcdDisplay(void){
-  uint32_t usfdist = Cycles2millimeter(Timer0_Read());
-  uint32_t usldist = Cycles2millimeter(Timer1_Read());
-	uint32_t usrdist = Cycles2millimeter(Timer3_Read());
-	//uint32_t angleL = wall_angle2(IRdata[0], IRdata[1], &calcTime);
   uint32_t angleL = wall_angle(IRdata[0], IRdata[1]);
   uint32_t angleR = wall_angle(IRdata[3], IRdata[2]);
   ST7735_Message(0, 0, "IR0: ", IRdata[0]);
@@ -100,20 +97,22 @@ void lcdDisplay(void){
   ST7735_Message(0, 3, "IR3: ", IRdata[3]);
 	ST7735_Message(0, 4, "AngleL: ", angleL);
   ST7735_Message(0, 5, "AngleR: ", angleR);
-  ST7735_Message(1, 0, "US0: ", usfdist);
-	ST7735_Message(1, 1, "US1: ", usldist);
-	ST7735_Message(1, 2, "US2: ", usrdist);
+  ST7735_Message(1, 0, "US0: ", USdata[0]);
+	ST7735_Message(1, 1, "US1: ", USdata[1]);
+	ST7735_Message(1, 2, "US2: ", USdata[2]);
   ST7735_Message(1, 3, "State: ", data[0]); 
   displayFlag = 0;
   OS_Kill();
 }
 
 void inputCapture(void){
-  IR_In(&IRdata[0]);
+  IR_In(IRdata);
   if(every10ms==0) {
+    US_In(USdata);
+    US_StartPing();
     //Timer0_StartPing();
-		//Timer1_StartPing();
-		//Timer3_StartPing();
+    //Timer1_StartPing();
+    //Timer3_StartPing();
 	}
   every10ms++;
   if(every10ms==10)
@@ -187,9 +186,10 @@ void stateMachine(void){
 
 int main(void){
   OS_Init();
-	//Timer0_Init();
-	//Timer1_Init();
-	//Timer3_Init();
+//  Timer0_Init2();
+//  Timer1_Init2();
+//  Timer3_Init2();
+  US_Init();
   CAN0_Open();
   IR_Init();
   ST7735_InitR(INITR_REDTAB);
@@ -199,7 +199,6 @@ int main(void){
   every10ms = 0;
   
 	OS_AddThread(&Interpreter, 128, 7);
-  //OS_AddThread(&driveThread2, 128, 0);
   OS_AddPeriodicThread(&inputCapture,80000,1);
   //OS_AddPeriodicThread(&canThread, 1600000, 0);
 	OS_Launch(TIME_1MS*10);

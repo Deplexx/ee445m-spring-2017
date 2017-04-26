@@ -30,6 +30,7 @@
 //*****************************************************************************
 
 #include <stdint.h>
+#include <stdbool.h>
 #define PART_TM4C123GH6PM
 
 #include "../inc/hw_ints.h"

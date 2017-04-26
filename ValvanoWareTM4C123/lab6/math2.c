@@ -3,6 +3,7 @@
 #include <stdint.h>
 #include "math2.h"
 #include "os.h"
+#include "us.h"
 
 #define PI 314
 #define MAGIC 28
@@ -36,26 +37,4 @@ int wall_angle2(int d0, int d1, unsigned long *time) {
   int result = ((int) fxpt_atan2((int16_t) y, (int16_t) x))*360/65536;
   *time = OS_Time() - first;
 	return result;
-}
-
-int atan(int x, int y) {
-	int abs_x, abs_y;
-	int res;
-		
-	abs_x = abs(x);
-	abs_y = abs(y);
-	
-	if(abs_x > abs_y) //o1 
-		res = (abs_x * abs_y * SCALE) / (abs_x * abs_x + (MAGIC * abs_y * abs_y) / SCALE);
-	else if(x == 0)
-    res = PI / 2;
-  else if(y == 0)
-    res = 0;
-  else //o2
-		res = (PI / 2) - (abs_y * abs_y * SCALE) / (abs_y * abs_y + (MAGIC * abs_x * abs_x) / SCALE);		
-	
-	if((x<0 && y>0) || (x>0 && y<0))
-		return -RAD2DEG(res);
-	else
-		return RAD2DEG(res);
 }
