@@ -178,3 +178,7 @@ StartOS
     POP     {R1}               ; discard PSR
     CPSIE   I                  ; Enable interrupts at processor level
     BX      LR                 ; start first thread
+	
+	ALIGN
+	END
+	
