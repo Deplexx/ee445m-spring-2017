@@ -91,11 +91,6 @@ static Sema4Type mailRecv;
 static Sema4Type mailLock;
 static unsigned long Mail;
 
-static void PortB_Init(void);
-
-static void SW1TaskWrapper(void);
-static void SW2TaskWrapper(void);
-
 void BlockThread(Sema4Type *sema);
 
 void InitAllTCBs(void){
