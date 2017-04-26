@@ -34,9 +34,9 @@
 // 120 ohm across CANH, CANL on both ends of network
 #include <stdint.h>
 #include "PLL.h"
-#include "Timer3.h"
 #include "can0.h"
 #include "../inc/tm4c123gh6pm.h"
+#include "math2.h"
 #include "OS.h"
 #include "ST7735.h"
 #include "USSensor.h"
@@ -87,12 +87,18 @@ uint32_t every10ms;
 void stateMachine(void);
 
 void lcdDisplay(void){
-  uint32_t usdist = USSensor_GetFrontDistance();
+  uint32_t usfdist = Cycles2millimeter(Timer0_Read());
+  uint32_t usldist = Cycles2millimeter(Timer1_Read());
+	uint32_t usrdist = Cycles2millimeter(Timer3_Read());
+	uint32_t angle01 = wall_angle(IRdata[0], IRdata[1]);
   ST7735_Message(0, 0, "IR0: ", IRdata[0]);
   ST7735_Message(0, 1, "IR1: ", IRdata[1]);
   ST7735_Message(0, 2, "IR2: ", IRdata[2]);
   ST7735_Message(0, 3, "IR3: ", IRdata[3]);
-  ST7735_Message(1, 0, "US0: ", usdist);
+	ST7735_Message(0, 4, "Angle01: ", angle01);
+  ST7735_Message(1, 0, "USf: ", usfdist);
+	ST7735_Message(1, 1, "USl: ", usldist);
+	ST7735_Message(1, 2, "USr: ", usrdist);
   ST7735_Message(1, 3, "State: ", data[0]); 
   displayFlag = 0;
   OS_Kill();
@@ -100,8 +106,11 @@ void lcdDisplay(void){
 
 void inputCapture(void){
   IR_In(&IRdata[0]);
-  if(every10ms==0)
-    USSensor_SendFrontPulse(); //5us
+  if(every10ms==0) {
+    Timer0_StartPing();
+		Timer1_StartPing();
+		Timer3_StartPing();
+	}
   every10ms++;
   if(every10ms==10)
     every10ms = 0;
@@ -256,7 +265,9 @@ void stateMachine(void){
 
 int main(void){
   OS_Init();
-	USSensor_Init();
+	Timer0_Init();
+	Timer1_Init();
+	Timer3_Init();
   CAN0_Open();
   IR_Init();
   ST7735_InitR(INITR_REDTAB);

@@ -15,10 +15,10 @@ void sensor_runComm(int argc, char argv[][ARGV_TOK_SIZE]) {
   static char ir2[256];
   static char ir3[256];
 	if(strcmp(argv[1], "ulso") == 0) {
-		snprintf(dist, 256, "US Sensor Distance: %d cm\n\r", USSensor_GetFrontDistance());
-		snprintf(time, 256, "US Start Time: %d cm\n\r", USSensor_GetFrontDistance());
-		printf(dist, 256, "US Sensor Distance: %d cm\n\r", USSensor_GetFrontDistance());
-		printf(time, 256, "US Start Time: %d cm\n\r", USSensor_GetFrontDistance());
+		snprintf(dist, 256, "US Sensor Distance: %d cm\n\r", Timer0_Read());
+		snprintf(time, 256, "US Start Time: %d cm\n\r", Timer0_Read());
+		printf(dist, 256, "US Sensor Distance: %d cm\n\r", Timer0_Read());
+		printf(time, 256, "US Start Time: %d cm\n\r", Timer0_Read());
 		ST7735_OutString(dist);
 		ST7735_OutString(time);
 	}
@@ -41,7 +41,7 @@ void sensor_runComm(int argc, char argv[][ARGV_TOK_SIZE]) {
     }else
     if(strcmp(argv[2], "put") == 0) {
       uint8_t data[4];
-      uint32_t usdist = USSensor_GetFrontDistance();
+      uint32_t usdist = Timer0_Read();
       data[0] = usdist & 0x000000FF;
       data[1] = (usdist & 0x0000FF00) >> 8;
       data[2] = (usdist & 0x00FF0000) >> 16;
