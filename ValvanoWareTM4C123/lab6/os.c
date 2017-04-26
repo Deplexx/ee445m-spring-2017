@@ -65,54 +65,6 @@ int32_t Stacks[MAXTHREADS][STACKSIZE];
 int numThreads = 0;
 int currentId = 0;
 
-#if DEBUG
-long MaxJitter;
-unsigned static long time11 = 0;  // time at previous ADC sample
-unsigned long time21 = 0;         // time at current ADC sample
-long MaxJitter1;             // largest time jitter between interrupts in usec
-#define JITTERSIZE 64
-unsigned long const JitterSize1=JITTERSIZE;
-unsigned long JitterHistogram1[JITTERSIZE]={0,};
-
-unsigned static long time12 = 0;  // time at previous ADC sample
-unsigned long time22 = 0;         // time at current ADC sample
-long MaxJitter2;             // largest time jitter between interrupts in usec
-unsigned long const JitterSize2=JITTERSIZE;
-unsigned long JitterHistogram2[JITTERSIZE]={0,};
-
-Sema4Type jitterLock;
-#endif
-
-#if DEBUG
-static int IntsEnabled = 0;
-static int MasterTime = 0;
-static int TmpTimeIntsDisabled;
-static int MaxTimeIntsDisabled = 0;
-static int TimeIntsDisabled = 0;
-static int PercentIntsDisabled = 0;
-static unsigned long GetMasterTime(void);
-#endif
-
-#if DEBUG
-
-#define TINFO_BUF_SIZE 100
-struct tinfo tInfoBuf[TINFO_BUF_SIZE];
-
-int tinfoBufI = 0;
-
-void addTInfo(enum tEvent e) {
-    if(tinfoBufI >= 100)
-        return;
-
-    tInfoBuf[tinfoBufI].tid = OS_Id();
-    tInfoBuf[tinfoBufI].e = e;
-    tInfoBuf[tinfoBufI].t = GetMasterTime();
-
-    tinfoBufI++;
-}
-
-#endif
-
 //"bootstraps" the next pointer for context switch
 tcbType dummyTcb;
 
@@ -138,8 +90,6 @@ static Sema4Type mailPost;
 static Sema4Type mailRecv;
 static Sema4Type mailLock;
 static unsigned long Mail;
-
-static void Jitter_Init(void);
 
 static void PortB_Init(void);
 
@@ -186,16 +136,6 @@ void OS_InitSysTimer(void){
   //TIMER4_CTL_R = 0x00000001;    // 10) enable TIMER3A
 }
 
-static void PortB_Init(void) {
-  SYSCTL_RCGCGPIO_R |= 0x02;       // activate port B
-  volatile int delay = SYSCTL_RCGCGPIO_R;
-  GPIO_PORTB_DIR_R |= 0x0F;    // make PB3-0 output heartbeats
-  GPIO_PORTB_AFSEL_R &= ~0x0F;   // disable alt funct on PB3-0
-  GPIO_PORTB_DEN_R |= 0x0F;     // enable digital I/O on PB3-0
-  GPIO_PORTB_PCTL_R = GPIO_PORTB_PCTL_R & ~0x0000FFFF;
-  GPIO_PORTB_AMSEL_R &= ~0x0F;;      // disable analog functionality on PB
-}
-
 // ******** OS_Init ************
 // initialize operating system, disable interrupts until OS_Launch
 // initialize OS controlled I/O: systick, 50 MHz PLL
@@ -208,10 +148,7 @@ void OS_Init(void){
   InitSleepTCB();
   OS_InitSysTimer();
   
-  //LED_Init();
   UART_Init();
-  //UARTStdioConfig(0, 115200, 80000000);
-  Jitter_Init();
   
   //Initialize PORTF for LEDs and Switches
   SYSCTL_RCGCGPIO_R |= 0x00000020;  // 1) activate clock for Port F
@@ -227,10 +164,6 @@ void OS_Init(void){
   GPIO_PORTF_PUR_R |= 0x11;         // enable pull-up on PF0 and PF4
   GPIO_PORTF_DEN_R |= 0x1F;         // 7) enable digital I/O on PF4-0
   
-#if DEBUG
-  PortB_Init();
-#endif
-
   //configure switch interrupts
   GPIO_PORTF_IS_R  &= ~0x11; //PF0,PF4 edge interrupts
   GPIO_PORTF_IBE_R &= ~0x11; //PF0,PF4 single edge interrupt
@@ -408,7 +341,7 @@ void OS_Sleep(unsigned long sleepTime){
 void Timer4A_Handler(void){
   TIMER4_ICR_R = TIMER_ICR_TATOCINT; //acknowledge interrupt
   int32_t status; status = StartCritical();
-  sysTime++; MasterTime++;
+  sysTime++;
   
   tcbType *t;
   for(t = RunPt;
@@ -451,52 +384,6 @@ int PeriodicTaskPeriod2;
 void(*PeriodicTask1)(void);
 void(*PeriodicTask2)(void);
 
-#if DEBUG
-void PeriodicTaskWrapper1() {
-  time21 = OS_Time();
-  (*PeriodicTask1)();                // execute user task
-  if(time11 != 0) {
-      unsigned long deltaT = OS_TimeDifference(time11, time21);
-      unsigned long jitter;
-
-      if(deltaT>PeriodicTaskPeriod1)
-        jitter = (deltaT-PeriodicTaskPeriod1+4)/8;  // in 0.1 usec
-      else
-        jitter = (PeriodicTaskPeriod1-deltaT+4)/8;  // in 0.1 usec
-      if(jitter > MaxJitter1)
-        MaxJitter1 = jitter; // in usec
-      if(MaxJitter1 > MaxJitter)
-          MaxJitter = MaxJitter1;
-      if(jitter >= JitterSize1)
-        jitter = JITTERSIZE-1;
-      JitterHistogram1[jitter]++;
-  }
-  time11 = time21;
-}
-
-void PeriodicTaskWrapper2() {
-  time22 = OS_Time();
-  (*PeriodicTask2)();                // execute user task
-  if(time12 != 0) {
-      unsigned long deltaT = OS_TimeDifference(time12, time22);
-      unsigned long jitter;
-
-      if(deltaT>PeriodicTaskPeriod2)
-        jitter = (deltaT-PeriodicTaskPeriod2+4)/8;  // in 0.1 usec
-      else
-        jitter = (PeriodicTaskPeriod2-deltaT+4)/8;  // in 0.1 usec
-      if(jitter > MaxJitter2)
-        MaxJitter2 = jitter; // in usec
-      if(MaxJitter2 > MaxJitter)
-        MaxJitter = MaxJitter2; // in usec
-      if(jitter >= JitterSize2)
-        jitter = JITTERSIZE-1;
-      JitterHistogram2[jitter]++;
-  }
-  time12 = time22;
-}
-#endif
-
 //void Timer3_Init(unsigned long period, unsigned long priority){
 //  SYSCTL_RCGCTIMER_R |= 0x08;   // 0) activate TIMER3
 //  volatile int delay = SYSCTL_RCGCTIMER_R;
@@ -535,36 +422,6 @@ void PeriodicTaskWrapper2() {
 #define ENABLE_PERIODICTASK1() (TIMER5_CTL_R |= 0x00000001)
 #define ENABLE_PERIODICTASK2() (TIMER5_CTL_R |= 0x00000100)
 
-void PeriodicTask_Init(void) {
-	SYSCTL_RCGCTIMER_R |= 0x20;   // 0) activate TIMER5
-  volatile int delay = SYSCTL_RCGCTIMER_R;
-}
-
-/*
-void PeriodicTask1_Init(unsigned long prd, unsigned long pri) {
-	PeriodicTask_Init();
-	TIMER5_CTL_R = 0x00000000;    // 1) disable TIMER5 during setup
-	TIMER5_TAMR_R = 0x00000002;	
-	TIMER5_TAILR_R = prd-1;
-	TIMER5_TAPR_R = 0;
-	TIMER5_ICR_R |= 0x00000001;
-	TIMER5_IMR_R |= 0x00000001;
-	NVIC_PRI23_R = (NVIC_PRI23_R&0xFFFFFF00)|(pri<<5);
-	NVIC_EN2_R |= 1<<(92%32);
-}
-
-void PeriodicTask2_Init(unsigned long prd, unsigned long pri) {
-	PeriodicTask_Init();
-	TIMER5_CTL_R = 0x00000000;    // 1) disBble TIMER5 during setup
-	TIMER5_TBMR_R = 0x00000002;	
-	TIMER5_TBILR_R = prd-1;
-	TIMER5_TBPR_R = 0;
-	TIMER5_ICR_R |= 0x00000100;
-	TIMER5_IMR_R |= 0x00000100;
-	NVIC_PRI23_R = (NVIC_PRI23_R&0xFFFFFF00)|(pri<<13);
-	NVIC_EN2_R |= 1<<(93%32);
-}
-*/
 void Timer5_Init(unsigned long period, unsigned long priority){
   SYSCTL_RCGCTIMER_R |= 0x20;   // 0) activate TIMER5
   volatile int delay = SYSCTL_RCGCTIMER_R;
@@ -690,12 +547,6 @@ void Timer5B_Handler(void){
 void(*SW1Task)(void) = 0;
 long SW1TaskPri;
 
-static void SW1TaskWrapper(void) {
-    if(SW1Task != NULL)
-        SW1Task();
-    OS_Kill();
-}
-
 int OS_AddSW1Task(void(*task)(void), unsigned long priority){
   int32_t status; status = StartCritical();
   //ignore priority for now
@@ -727,12 +578,6 @@ int OS_AddSW1Task(void(*task)(void), unsigned long priority){
 
 void(*SW2Task)(void) = 0;
 long SW2TaskPri;
-
-static void SW2TaskWrapper(void) {
-    if(SW2Task != NULL)
-        SW2Task();
-    OS_Kill();
-}
 
 int OS_AddSW2Task(void(*task)(void), unsigned long priority){
   int32_t status; status = StartCritical();
@@ -864,12 +709,6 @@ unsigned long OS_Time(void){
   return value;
 }
 
-#if DEBUG
-static unsigned long GetMasterTime(void) {
-    return TIMER4_TAILR_R - TIMER4_TAV_R + MasterTime*TIME_1MS;
-}
-#endif
-
 // ******** OS_TimeDifference ************
 // Calculates difference between two times
 // Inputs:  two times measured with OS_Time
@@ -907,18 +746,6 @@ int32_t OS_GetCurByte(void) {
 
 void OS_SetCurByte(int byte) {
     RunPt->cur_byte = byte;
-}
-
-int OS_MaxTimeIntsDisabled(void) {
-    return MaxTimeIntsDisabled;
-}
-
-int OS_TimeIntsDisabled(void) {
-    return TimeIntsDisabled;
-}
-
-int OS_PercentIntsDisabled(void) {
-    return PercentIntsDisabled;
 }
 
 // ******** OS_MsTime ************
@@ -1042,76 +869,18 @@ void setNextThread(void){
     RunPt = next;
 }
 
-void Jitter_Init(void) {
-    OS_InitSemaphore(&jitterLock, 0);
-}
-
-void Jitter(void) {
-    OS_bWait(&jitterLock);
-    UART_OutStringCRLF("Periodic thread 1 jitter data:");
-    UART_OutString("Max jitter: "); UART_OutUDec(MaxJitter1); UART_OutString(" x 0.1 us"); UART_OutCRLF();
-    UART_OutStringCRLF("Jitter distribution: ");
-    for(int i = 0; i < JITTERSIZE; ++i) {
-        UART_OutString("i="); UART_OutUDec(i); UART_OutString(": ");
-        for(int j = 0; j < JitterHistogram1[i] >> 2; ++j)
-          UART_OutChar('=');
-        UART_OutChar(' '); UART_OutUDec(JitterHistogram1[i]); UART_OutCRLF();
-    }
-
-    UART_OutStringCRLF("Periodic thread 2 jitter data:");
-    UART_OutString("Max jitter: "); UART_OutUDec(MaxJitter2); UART_OutString(" x 0.1 us"); UART_OutCRLF();
-    UART_OutStringCRLF("Jitter distribution: ");
-    for(int i = 0; i < JITTERSIZE; ++i) {
-        UART_OutString("i="); UART_OutUDec(i); UART_OutString(": ");
-        for(int j = 0; j < JitterHistogram2[i] >> 2; ++j)
-          UART_OutChar('=');
-        UART_OutChar(' '); UART_OutUDec(JitterHistogram2[i]); UART_OutCRLF();
-    }
-    OS_bSignal(&jitterLock);
-}
-
 void OS_DisableInterrupts(void) {
-#if DEBUG
-    if(IntsEnabled) {
-        TmpTimeIntsDisabled = GetMasterTime();
-        IntsEnabled = 0;
-    }
-#endif
     DisableInterrupts();
 }
 
 void OS_EnableInterrupts(void) {
-#if DEBUG
-    unsigned long tmp = GetMasterTime();
-    unsigned long t = OS_TimeDifference(TmpTimeIntsDisabled, tmp);
-    TimeIntsDisabled += t;
-    if(t > MaxTimeIntsDisabled)
-        MaxTimeIntsDisabled = t;
-    PercentIntsDisabled = (TimeIntsDisabled * 100) / GetMasterTime();
-    IntsEnabled = 1;
-#endif
     EnableInterrupts();
 }
 
 long StartCritical(void) {
-#if DEBUG
-    if(IntsEnabled) {
-        TmpTimeIntsDisabled = GetMasterTime();
-        IntsEnabled = 0;
-    }
-#endif
     return StartCriticalAsm();
 }
 
 void EndCritical(long sav) {
-#if DEBUG
-    unsigned long tmp = GetMasterTime();
-    unsigned long t = OS_TimeDifference(TmpTimeIntsDisabled, tmp);
-    TimeIntsDisabled += t;
-    if(t > MaxTimeIntsDisabled)
-        MaxTimeIntsDisabled = t;
-    PercentIntsDisabled = (TimeIntsDisabled * 100) / GetMasterTime();
-    IntsEnabled = !sav;
-#endif
     EndCriticalAsm(sav);
 }

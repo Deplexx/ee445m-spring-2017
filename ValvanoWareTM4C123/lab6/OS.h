@@ -29,7 +29,7 @@
 #include <stdint.h>
 
 //debug flag; set to 0 to undefine some useful (but slow) debug info
-#define DEBUG 1
+#define DEBUG 0
 
 #if DEBUG
 enum tEvent {
