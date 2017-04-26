@@ -9,9 +9,15 @@
 
 #define RAD2DEG(x) ((x * 180) / PI)
 
+// int wall_angle(int d0, int d1) {
+	// int y = 707*d0+48100-500*d1;
+	// int x = 866*d1+9800-707*d0;
+	// return atan(x,y);
+// }
+
 int wall_angle(int d0, int d1) {
-	int y = 707*d0+48100-500*d1;
-	int x = 866*d1+9800-707*d0;
+	int y = 70*d0+4810-50*d1;
+	int x = 86*d1+980-70*d0;
 	return atan(x,y);
 }
 
