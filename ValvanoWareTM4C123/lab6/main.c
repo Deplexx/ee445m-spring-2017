@@ -46,6 +46,24 @@
 #define PF0       (*((volatile uint32_t *)0x40025004))
 #define PF4       (*((volatile uint32_t *)0x40025040))
 
+#define MIN_SPEED 10
+#define MIN_D 50 //mm
+#define MIN_IR 70 //ir0 + ir1
+#define K_I 1
+#define K_P 1
+
+static int base_speed;
+static int servo_angle;
+static int car_d;
+
+#define R_MIN MIN_SPEED
+#define R_SPEEDUP 1
+#define R_SLOWDOWN 1
+#define L_MIN MIN_SPEED
+#define L_SPEEDUP 1
+#define L_SLOWDOWN 1
+static int l_speed, r_speed;
+
 void StartOS(void);
 
 /*
@@ -110,6 +128,7 @@ void inputCapture(void){
   IR_In(IRdata);
   if(every10ms==0) {
     US_In(USdata);
+		car_d = USdata[1];
     US_StartPing();
     //Timer0_StartPing();
     //Timer1_StartPing();
@@ -185,24 +204,6 @@ void stateMachine(void){
   
   state = nextState;
 }
-
-#define MIN_SPEED 10
-#define MIN_D 50 //mm
-#define MIN_IR 70 //ir0 + ir1
-#define K_I 1
-#define K_P 1
-
-static int base_speed;
-static int servo_angle;
-static int car_d;
-
-#define R_MIN MIN_SPEED
-#define R_SPEEDUP 1
-#define R_SLOWDOWN 1
-#define L_MIN MIN_SPEED
-#define L_SPEEDUP 1
-#define L_SLOWDOWN 1
-static int l_speed, r_speed;
 
 void pid(void) {
 	int speed_error;
