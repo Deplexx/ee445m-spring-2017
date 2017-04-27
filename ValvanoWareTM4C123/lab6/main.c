@@ -87,6 +87,7 @@ uint32_t displayFlag;
 uint32_t every10ms;
 unsigned long calcTime;
 void stateMachine(void);
+void pid(void);
 
 void lcdDisplay(void){
   uint32_t angleL = wall_angle(IRdata[0], IRdata[1]);
@@ -121,7 +122,8 @@ void inputCapture(void){
     displayFlag = 1;
     OS_AddThread(&lcdDisplay,128,1);
   }
-  stateMachine();
+  //stateMachine();
+	pid();
 }
 
 void canSend(int s){
@@ -184,6 +186,49 @@ void stateMachine(void){
   state = nextState;
 }
 
+void pid(void) {
+	int speed_error;
+	int wall_angle, d1, d0;
+	
+	//speed
+	speed_error = car_d - MIN_D;
+	if(speed_error > 0)
+		base_speed = 100;
+	else
+		base_speed = base_speed * K_I + speed_error * K_P;
+		
+  if(base_speed < MIN_SPEED)
+		base_speed = MIN_SPEED;
+	
+	//steering
+	if((IRdata[0] + IRdata[1]) > (IRdata[2] + IRdata[3])) {
+		wall_angle = wall_angle(IRdata[3], IRdata[2]); //turn left
+		d0 = IRdata[2]; d1 = IRdata[3];
+	} else {
+		wall_angle = -wall_angle(IRdata[0], IRdata[1]); //turn right
+		d0 = IRdata[0]; d1 = IRdata[1];
+	}
+	
+	if(d0 + d1 < MIN_IR) { // make turn
+		servo_angle = wall_angle * 10 / 9;
+		if(wall_angle > 0) {
+			r_speed = base_speed + wall_angle * R_SPEEDUP;
+			l_speed = base_speed - wall_angle * L_SLOWDOWN;
+		} else {
+			r_speed = base_speed - wall_angle * R_SLOWDOWN;
+			l_speed = base_speed + wall_angle * L_SPEEDUP;
+		}
+  } else servo_angle = 0;
+	
+	if(r_speed < R_MIN)
+		r_speed = R_MIN;
+	
+	if(l_speed < L_MIN)
+		l_speed = L_MIN;
+	
+	CAN_Set(10, l_speed, r_speed, servo_angle);
+} 
+
 int main(void){
   OS_Init();
 //  Timer0_Init2();
@@ -197,7 +242,9 @@ int main(void){
   
   displayFlag = 0;
   every10ms = 0;
-  
+  base_speed = l_speed = r_speed = 100;
+	base_angle = servo_angle = 0;
+	
 	OS_AddThread(&Interpreter, 128, 7);
   OS_AddPeriodicThread(&inputCapture,80000,1);
   //OS_AddPeriodicThread(&canThread, 1600000, 0);
