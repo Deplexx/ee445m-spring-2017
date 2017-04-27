@@ -1,6 +1,6 @@
 #include "cmdLine.h"
 #include "sensor_cmdLine.h"
-#include "USSensor.h"
+#include "US.h"
 #include "ST7735.h"
 #include "can0.h"
 

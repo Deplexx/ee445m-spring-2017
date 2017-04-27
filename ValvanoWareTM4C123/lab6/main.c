@@ -33,10 +33,12 @@
 // MCP2551 Pin8 RS   ---- ground, Slope-Control Input (maximum slew rate)
 // 120 ohm across CANH, CANL on both ends of network
 #include <stdint.h>
+#include <math.h>
+
 #include "PLL.h"
+#include "Timer3.h"
 #include "can0.h"
 #include "../inc/tm4c123gh6pm.h"
-#include "math2.h"
 #include "OS.h"
 #include "ST7735.h"
 #include "US.h"
@@ -85,35 +87,28 @@ uint32_t USdata[3];
 static uint8_t data[4];
 uint32_t displayFlag;
 uint32_t every10ms;
-unsigned long calcTime;
 void stateMachine(void);
 
 void lcdDisplay(void){
-  uint32_t angleL = wall_angle(IRdata[0], IRdata[1]);
-  uint32_t angleR = wall_angle(IRdata[3], IRdata[2]);
+//  uint32_t usdist[3] = USSensor();
   ST7735_Message(0, 0, "IR0: ", IRdata[0]);
   ST7735_Message(0, 1, "IR1: ", IRdata[1]);
   ST7735_Message(0, 2, "IR2: ", IRdata[2]);
   ST7735_Message(0, 3, "IR3: ", IRdata[3]);
-	ST7735_Message(0, 4, "AngleL: ", angleL);
-  ST7735_Message(0, 5, "AngleR: ", angleR);
-  ST7735_Message(1, 0, "US0: ", USdata[0]);
-	ST7735_Message(1, 1, "US1: ", USdata[1]);
-	ST7735_Message(1, 2, "US2: ", USdata[2]);
+  ST7735_Message(1, 0, "USL: ", USdata[0]);
+	ST7735_Message(1, 0, "USR: ", USdata[1]);
+	ST7735_Message(1, 0, "USF: ", USdata[2]);
   ST7735_Message(1, 3, "State: ", data[0]); 
   displayFlag = 0;
   OS_Kill();
 }
 
 void inputCapture(void){
-  IR_In(IRdata);
-  if(every10ms==0) {
-    US_In(USdata);
-    US_StartPing();
-    //Timer0_StartPing();
-    //Timer1_StartPing();
-    //Timer3_StartPing();
-	}
+  IR_In(&IRdata[0]);
+  if(every10ms==0)
+    //USSensor_SendFrontPulse(); //5us
+		US_In(USdata);
+	US_StartPing();
   every10ms++;
   if(every10ms==10)
     every10ms = 0;
@@ -121,75 +116,191 @@ void inputCapture(void){
     displayFlag = 1;
     OS_AddThread(&lcdDisplay,128,1);
   }
-  stateMachine();
+  //stateMachine();
 }
 
-void canSend(int s){
-  data[0] = s;
+void driveThread(void){
+  OS_Sleep(5000);
+  static uint8_t data[4];
+  //increase speed
+  data[0] = 2; data[1] = 0; data[2] = 0; data[3] = 0;
+  for(int k=0; k<1000; k++){
+    CAN0_SendData(data);
+    OS_Sleep(10);
+  }
+  //stop????
+  data[0] = 0; data[1] = 0; data[2] = 0; data[3] = 0;
+  while(1){
+    CAN0_SendData(data);
+    OS_Sleep(10);
+  }
+}
+
+void driveThread2(void){
+  data[0] = 2; data[1] = 0; data[2] = 0; data[3] = 0;
+  //accelerate
+  /*for(int k=0; k<40; k++){
+    CAN0_SendData(data);
+    OS_Sleep(10);
+  }*/
+	
+  
+  while(1){
+    /*
+    int diff = IRdata[0] - IRdata[1];
+    
+    if(diff<0)
+      diff = -diff;
+    
+    if(diff>-10){
+      data[0] = 1; //do nothing
+      CAN0_SendData(data);
+    } else {
+      data[0] = 7; //drift left, same speed
+      CAN0_SendData(data);
+      OS_Sleep(100);
+    }
+    */
+    /*
+    if(IRdata[0]-IRdata[1]<-20){
+      data[0] = 7; //drift left
+      CAN0_SendData(data);
+      OS_Sleep(200);
+    } else if(IRdata[0]-IRdata[1]>20){
+      data[0] = 4; //drift right
+      CAN0_SendData(data);
+      OS_Sleep(200);
+    } else {
+      data[0] = 1; //do nothing
+      CAN0_SendData(data);
+    }
+    */
+    
+    int diff = IRdata[0] - IRdata[1];
+    int avg = (IRdata[0] + IRdata[1])/2;
+    
+    if(avg>250){
+      data[0] = 7; //drift left
+      CAN0_SendData(data);
+    } else if(diff<-25){
+      data[0] = 7; //drift left
+      CAN0_SendData(data);
+    } else if(diff>25){
+      data[0] = 4; //drift right
+      CAN0_SendData(data);
+    } else if(IRdata[0]<100){
+      data[0] = 4; //drift right
+      CAN0_SendData(data);
+    } else if(IRdata[0]>180){
+      data[0] = 7; //drift left
+      CAN0_SendData(data);
+    } else {
+      data[0] = 1; //drift straight
+      CAN0_SendData(data);
+    }
+    //OS_Sleep(20);
+  }
+}
+
+long absolute(long value) {
+  if (value < 0) {
+    return -value;
+  }
+  else {
+    return value;  
+  }
+}
+
+void canSend(int s1, int s2, int s3, int s4){
+  data[0] = s1;
+	data[1] = s2;
+	data[2] = s3;
+	data[3] = s4;
   CAN0_SendData(data);
 }
 
-enum STATES {SPEEDUP,LWALL,LTURN};
+enum STATES {START, DRIFTR, DRIFTL, TURNR, TURNL, STOP, STRAIGHT};
 
-void stateMachine(void){
-  static int diff, avg;
+static int state = START;
+
+int st = 1;
+
+void NextState(void){
+	static int diff, avg;
   static int wait = 50;
   static int targetDist = 130;
-  static int state = SPEEDUP;
-  static int nextState;
   
+	if(st){
+		state = START;
+		st = 0;
+	}
+	
+	/*
+	     F      
+	
+			oooo
+		|-    -|
+			|\/|
+L	    |/\|     R
+	  |-[][]-|
+	
+	
+	
+	*/
+	
   diff = IRdata[0] - IRdata[1];
   avg = (IRdata[0] + IRdata[1])/2;
+	int USL = USdata[0];
+	int USR = USdata[1];
+	int USF = USdata[2];
+	
+	int USdiff = absolute(USL)-absolute(USR);
+	
+	if(USdiff<50 | USdiff>50){
+		state = STRAIGHT;
+	}else if (USdiff>50){
+		state = DRIFTR;
+  }else if (USdiff<50){
+		state = DRIFTL;
+	};
+}
 
-  nextState = state;
-  
-  switch(state){
-    case SPEEDUP:
-    canSend(2);
-    wait--;
-    
-    if(wait<=0){
-      nextState = LWALL;
-    }
+void ChangeState(void){
+	 switch(state){
+    case START:
+			canSend(0,0,0,0);
+			canSend(3,50,0,1);
     break;
-    case LWALL:
-     if(IRdata[0]<targetDist && IRdata[1]>targetDist){
-      canSend(7); //drift left
-    } else if(IRdata[0]>targetDist && IRdata[1]<targetDist){
-      canSend(4); //drift right
-    } else if(IRdata[0]>targetDist && IRdata[1]>targetDist){
-      canSend(7); //drift left
-    } else if(IRdata[0]<targetDist && IRdata[1]<targetDist){
-      canSend(4); //drift right
-    } else {
-      canSend(1);//drift straight
-    }
-    
-    if(IRdata[1] > targetDist*2){
-      nextState = LTURN;
-    }
-    break;
-    case LTURN:
-    canSend(13);
-    
-    if(IRdata[1] < targetDist){
-      nextState = LWALL;
-    }
-    break;
-    default:
-    
-    break;
+
+    case DRIFTR:
+			canSend(1,0,0,0);
+		break;
+		
+		case DRIFTL:
+			canSend(2,0,0,0);
+		break;
+		
+		case TURNR:
+			canSend(4,0,0,0);
+		break;
+		
+		case TURNL:
+			canSend(4,0,0,0);
+		break;
+		
+		case STOP:
+			canSend(0,0,0,1);
+		break;
+			
+		case STRAIGHT:
+			canSend(0,0,0,0);
+		break;
   }
-  
-  state = nextState;
 }
 
 int main(void){
   OS_Init();
-//  Timer0_Init2();
-//  Timer1_Init2();
-//  Timer3_Init2();
-  US_Init();
+	US_Init();
   CAN0_Open();
   IR_Init();
   ST7735_InitR(INITR_REDTAB);
@@ -199,6 +310,9 @@ int main(void){
   every10ms = 0;
   
 	OS_AddThread(&Interpreter, 128, 7);
+  //OS_AddThread(&driveThread2, 128, 0);
+	OS_AddThread(&NextState, 128, 1);
+	OS_AddPeriodicThread(&ChangeState,200000,1);
   OS_AddPeriodicThread(&inputCapture,80000,1);
   //OS_AddPeriodicThread(&canThread, 1600000, 0);
 	OS_Launch(TIME_1MS*10);

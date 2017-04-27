@@ -496,6 +496,11 @@
               <FilePath>.\math2.c</FilePath>
             </File>
             <File>
+              <FileName>Timer3.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>.\Timer3.c</FilePath>
+            </File>
+            <File>
               <FileName>US.c</FileName>
               <FileType>1</FileType>
               <FilePath>.\US.c</FilePath>
