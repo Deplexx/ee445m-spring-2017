@@ -25,7 +25,7 @@ int wall_angle(int d0, int d1) {
   //convert from 1/65536th turns to degrees
   int result = ((int) fxpt_atan2((int16_t) y, (int16_t) x))*360/65536;
   if(result>270){ //map 270->360 degrees as -90->0
-    result = result - 270;
+    result = result - 360;
   }
 	return result;
 }

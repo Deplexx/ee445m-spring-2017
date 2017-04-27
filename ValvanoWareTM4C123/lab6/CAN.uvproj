@@ -409,11 +409,6 @@
               <FilePath>.\main.c</FilePath>
             </File>
             <File>
-              <FileName>PeriodMeasure.c</FileName>
-              <FileType>1</FileType>
-              <FilePath>.\PeriodMeasure.c</FilePath>
-            </File>
-            <File>
               <FileName>ST7735.c</FileName>
               <FileType>1</FileType>
               <FilePath>.\ST7735.c</FilePath>
@@ -479,19 +474,19 @@
               <FilePath>.\interrupt.c</FilePath>
             </File>
             <File>
-              <FileName>atan.c</FileName>
-              <FileType>1</FileType>
-              <FilePath>.\atan.c</FilePath>
-            </File>
-            <File>
               <FileName>IR.c</FileName>
               <FileType>1</FileType>
               <FilePath>.\IR.c</FilePath>
             </File>
             <File>
-              <FileName>get_dev_angle.c</FileName>
+              <FileName>fxpt_atan2.c</FileName>
               <FileType>1</FileType>
-              <FilePath>.\get_dev_angle.c</FilePath>
+              <FilePath>.\fxpt_atan2.c</FilePath>
+            </File>
+            <File>
+              <FileName>math2.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>.\math2.c</FilePath>
             </File>
           </Files>
         </Group>
