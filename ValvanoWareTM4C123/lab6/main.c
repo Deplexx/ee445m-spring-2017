@@ -90,8 +90,8 @@ void stateMachine(void);
 void pid(void);
 
 void lcdDisplay(void){
-  uint32_t angleL = wall_angle(IRdata[0], IRdata[1]);
-  uint32_t angleR = wall_angle(IRdata[3], IRdata[2]);
+  uint32_t angleL = get_wall_angle(IRdata[0], IRdata[1]);
+  uint32_t angleR = get_wall_angle(IRdata[3], IRdata[2]);
   ST7735_Message(0, 0, "IR0: ", IRdata[0]);
   ST7735_Message(0, 1, "IR1: ", IRdata[1]);
   ST7735_Message(0, 2, "IR2: ", IRdata[2]);
@@ -186,6 +186,24 @@ void stateMachine(void){
   state = nextState;
 }
 
+#define MIN_SPEED 10
+#define MIN_D 50 //mm
+#define MIN_IR 70 //ir0 + ir1
+#define K_I 1
+#define K_P 1
+
+static int base_speed;
+static int servo_angle;
+static int car_d;
+
+#define R_MIN MIN_SPEED
+#define R_SPEEDUP 1
+#define R_SLOWDOWN 1
+#define L_MIN MIN_SPEED
+#define L_SPEEDUP 1
+#define L_SLOWDOWN 1
+static int l_speed, r_speed;
+
 void pid(void) {
 	int speed_error;
 	int wall_angle, d1, d0;
@@ -202,10 +220,10 @@ void pid(void) {
 	
 	//steering
 	if((IRdata[0] + IRdata[1]) > (IRdata[2] + IRdata[3])) {
-		wall_angle = wall_angle(IRdata[3], IRdata[2]); //turn left
+		wall_angle = get_wall_angle(IRdata[3], IRdata[2]); //turn left
 		d0 = IRdata[2]; d1 = IRdata[3];
 	} else {
-		wall_angle = -wall_angle(IRdata[0], IRdata[1]); //turn right
+		wall_angle = -get_wall_angle(IRdata[0], IRdata[1]); //turn right
 		d0 = IRdata[0]; d1 = IRdata[1];
 	}
 	
@@ -226,7 +244,9 @@ void pid(void) {
 	if(l_speed < L_MIN)
 		l_speed = L_MIN;
 	
-	CAN_Set(10, l_speed, r_speed, servo_angle);
+	int8_t data[4] = {10, l_speed, r_speed, servo_angle};
+	
+	CAN0_SendData((uint8_t*) data);
 } 
 
 int main(void){
@@ -243,7 +263,7 @@ int main(void){
   displayFlag = 0;
   every10ms = 0;
   base_speed = l_speed = r_speed = 100;
-	base_angle = servo_angle = 0;
+	servo_angle = 0;
 	
 	OS_AddThread(&Interpreter, 128, 7);
   OS_AddPeriodicThread(&inputCapture,80000,1);

@@ -157,3 +157,6 @@ void CAN0_GetMail(uint8_t data[4]){
   MailFlag = false;
 }
 
+//void CAN_Set(int8_t state, int8_t p0, int8_t p1, int8_t p2) {
+//	CAN0_SendData({state, p0, p1, p2});
+//}

@@ -51,7 +51,7 @@ void CAN0_Open(void);
 // send 4 bytes of data to other microcontroller 
 void CAN0_SendData(uint8_t data[4]);
 
-
+//void CAN_Set(int state, int8_t l_speed, int8_t r_speed, int8_t servo_angle);
 
 #endif //  __CAN0_H__
 

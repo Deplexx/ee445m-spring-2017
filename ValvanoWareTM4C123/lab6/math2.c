@@ -13,7 +13,7 @@
 
 uint16_t fxpt_atan2(const int16_t y, const int16_t x);
 
-int wall_angle(int d0, int d1) {
+int get_wall_angle(int d0, int d1) {
   //y = 1/sqrt(2)*d0 + 48.1 - 1/2*d1
   //x = sqrt(3)/2*d1 + 9.8 - 1/sqrt(2)*d0
   //scaling factor = 46, prescale = 256
