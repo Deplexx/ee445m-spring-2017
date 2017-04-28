@@ -367,7 +367,7 @@ void US_Init(void){
 }
 
 void US_StartPing(void){
-  //long crit = StartCritical();
+  long crit = StartCritical();
   GPIO_PORTB_AFSEL_R &= ~0x54;     // disable alt funct on PB6
   GPIO_PORTB_PCTL_R = GPIO_PORTB_PCTL_R&0xF0F0F0FF;
   GPIO_PORTB_DIR_R |= 0x54;        // make PB6 output
@@ -387,21 +387,22 @@ void US_StartPing(void){
   TIMER0_ICR_R = TIMER_ICR_CAECINT;// clear timer0A capture match flag
   TIMER1_ICR_R = TIMER_ICR_CAECINT;// clear timer1A capture match flag
   TIMER3_ICR_R = TIMER_ICR_CAECINT;// clear timer3A capture match flag
-  //EndCritical(crit);
+  EndCritical(crit);
 }
-
+double filterUS1 = 0;
 void US_In(uint32_t data[3]){
   static uint32_t last[3];
   int curr;
 
   curr = Cycles2millimeter(Timer0_Read());
-  if(curr){ last[0] = curr; }
+  if(curr && curr < 800){ last[0] = curr; }
 
   curr = Cycles2millimeter(Timer1_Read());
-  if(curr){ last[1] = curr; }
-
+  if(curr && curr < 800){ last[1] = curr; }
+	filterUS1 = filterUS1*.9 + last[1]*.1; 
+	last[1] = filterUS1;
   curr = Cycles2millimeter(Timer3_Read());
-  if(curr){ last[2] = curr; }
+  if(curr && curr < 800){ last[2] = curr; }
 
   data[0] = last[0];
   data[1] = last[1];

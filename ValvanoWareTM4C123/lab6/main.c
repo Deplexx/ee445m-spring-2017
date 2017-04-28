@@ -46,9 +46,12 @@
 #define PF0       (*((volatile uint32_t *)0x40025004))
 #define PF4       (*((volatile uint32_t *)0x40025040))
 
-#define MIN_SPEED 10
-#define MIN_D 50 //mm
-#define MIN_IR 70 //ir0 + ir1
+#define MIN_SPEED 30
+#define MAX_SPEED 50
+#define MAX_ANGLE 100
+#define MIN_ANGLE -100
+#define MIN_D 200 //mm
+#define MIN_IR 700 //ir0 + ir1
 #define K_I 1
 #define K_P 1
 
@@ -108,20 +111,25 @@ void stateMachine(void);
 void pid(void);
 
 void lcdDisplay(void){
-  uint32_t angleL = get_wall_angle(IRdata[0], IRdata[1]);
-  uint32_t angleR = get_wall_angle(IRdata[3], IRdata[2]);
-  ST7735_Message(0, 0, "IR0: ", IRdata[0]);
-  ST7735_Message(0, 1, "IR1: ", IRdata[1]);
-  ST7735_Message(0, 2, "IR2: ", IRdata[2]);
-  ST7735_Message(0, 3, "IR3: ", IRdata[3]);
-	ST7735_Message(0, 4, "AngleL: ", angleL);
-  ST7735_Message(0, 5, "AngleR: ", angleR);
-  ST7735_Message(1, 0, "US0: ", USdata[0]);
-	ST7735_Message(1, 1, "US1: ", USdata[1]);
-	ST7735_Message(1, 2, "US2: ", USdata[2]);
-  ST7735_Message(1, 3, "State: ", data[0]); 
-  displayFlag = 0;
-  OS_Kill();
+	while(1) {
+		uint32_t angleL = get_wall_angle(IRdata[0], IRdata[1]);
+		uint32_t angleR = get_wall_angle(IRdata[3], IRdata[2]);
+		ST7735_Message(0, 0, "IR0: ", IRdata[0]);
+		ST7735_Message(0, 1, "IR1: ", IRdata[1]);
+		ST7735_Message(0, 2, "IR2: ", IRdata[2]);
+		ST7735_Message(0, 3, "IR3: ", IRdata[3]);
+		ST7735_Message(0, 4, "AngleL: ", angleL);
+		ST7735_Message(0, 5, "AngleR: ", angleR);
+		ST7735_Message(1, 0, "US0: ", USdata[0]);
+		ST7735_Message(1, 1, "US1: ", USdata[1]);
+		ST7735_Message(1, 2, "US2: ", USdata[2]);
+		ST7735_Message(1, 3, "State: ", data[0]); 
+		ST7735_Message(1, 4, "b speed: ", base_speed); 
+		ST7735_Message(1, 5, "l speed: ", l_speed); 
+		ST7735_Message(1, 6, "r speed: ", r_speed); 
+		ST7735_Message(1, 7, "s angle: ", (int8_t) servo_angle); 
+		displayFlag = 0;
+	}		
 }
 
 void inputCapture(void){
@@ -139,10 +147,10 @@ void inputCapture(void){
     every10ms = 0;
   if(displayFlag==0){
     displayFlag = 1;
-    OS_AddThread(&lcdDisplay,128,1);
+    //OS_AddThread(&lcdDisplay,128,1);
   }
   //stateMachine();
-	pid();
+	//pid();
 }
 
 void canSend(int s){
@@ -218,26 +226,30 @@ void pid(void) {
 		
   if(base_speed < MIN_SPEED)
 		base_speed = MIN_SPEED;
+	else if(base_speed > MAX_SPEED)
+		base_speed = MAX_SPEED;
 	
 	//steering
 	if((IRdata[0] + IRdata[1]) > (IRdata[2] + IRdata[3])) {
-		wall_angle = get_wall_angle(IRdata[3], IRdata[2]); //turn left
+		wall_angle = -get_wall_angle(IRdata[3], IRdata[2]); //turn left
 		d0 = IRdata[2]; d1 = IRdata[3];
 	} else {
-		wall_angle = -get_wall_angle(IRdata[0], IRdata[1]); //turn right
+		wall_angle = get_wall_angle(IRdata[0], IRdata[1]); //turn right
 		d0 = IRdata[0]; d1 = IRdata[1];
 	}
 	
 	if(d0 + d1 < MIN_IR) { // make turn
-		servo_angle = wall_angle * 10 / 9;
+		servo_angle = wall_angle * 15 / 9;
 		if(wall_angle > 0) {
-			r_speed = base_speed + wall_angle * R_SPEEDUP;
-			l_speed = base_speed - wall_angle * L_SLOWDOWN;
+			r_speed = base_speed - wall_angle * R_SPEEDUP; //turn left
+			l_speed = base_speed + wall_angle * L_SLOWDOWN;
 		} else {
-			r_speed = base_speed - wall_angle * R_SLOWDOWN;
+			r_speed = base_speed - wall_angle * R_SLOWDOWN; //turn right
 			l_speed = base_speed + wall_angle * L_SPEEDUP;
 		}
-  } else servo_angle = 0;
+  } else {
+		servo_angle = 0; l_speed = r_speed = base_speed;
+	}
 	
 	if(r_speed < R_MIN)
 		r_speed = R_MIN;
@@ -245,7 +257,15 @@ void pid(void) {
 	if(l_speed < L_MIN)
 		l_speed = L_MIN;
 	
-	int8_t data[4] = {10, l_speed, r_speed, servo_angle};
+	if(servo_angle < MIN_ANGLE)
+		servo_angle = MIN_ANGLE;
+	else if(servo_angle > MAX_ANGLE)
+		servo_angle = MAX_ANGLE;
+	
+	data[0] = 10;
+	data[1] = l_speed;
+	data[2] = r_speed;
+	data[3] = servo_angle + 100;
 	
 	CAN0_SendData((uint8_t*) data);
 } 
@@ -268,6 +288,8 @@ int main(void){
 	
 	OS_AddThread(&Interpreter, 128, 7);
   OS_AddPeriodicThread(&inputCapture,80000,1);
+	OS_AddPeriodicThread(&pid,800000,1);
+	OS_AddThread(&lcdDisplay,128,1);
   //OS_AddPeriodicThread(&canThread, 1600000, 0);
 	OS_Launch(TIME_1MS*10);
 }

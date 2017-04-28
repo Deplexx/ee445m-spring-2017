@@ -581,7 +581,7 @@ void static writedata(unsigned char c) {
 // Notes: This assumes 80 MHz system clock.
 void Delay1ms(uint32_t n){
   while(n){
-    Delay(26667);
+    Delay(2667);
     n--;
   }
 }
