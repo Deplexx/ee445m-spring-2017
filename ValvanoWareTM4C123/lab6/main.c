@@ -46,12 +46,46 @@
 #define PF0       (*((volatile uint32_t *)0x40025004))
 #define PF4       (*((volatile uint32_t *)0x40025040))
 
+//prod
+//#define MIN_SPEED 30
+//#define MAX_SPEED 50
+
+//#define MAX_ANGLE 100
+//#define MIN_ANGLE -100
+//#define MIN_D 150 //mm
+//#define MIN_IR 700 //ir0 + ir1
+//#define SERVO_ANGLE_MULT (15 / 9)
+
+//#define K_I 1
+//#define K_P 1
+
+//static int base_speed;
+//static int servo_angle;
+//static int car_d;
+
+//#define R_MIN MIN_SPEED
+//#define R_SPEEDUP 1
+//#define R_SLOWDOWN 1
+//#define L_MIN MIN_SPEED
+//#define L_SPEEDUP 1
+//#define L_SLOWDOWN 1
+//static int l_speed, r_speed;
+
+//testing
 #define MIN_SPEED 30
-#define MAX_SPEED 50
+#define MAX_SPEED 70
+
 #define MAX_ANGLE 100
 #define MIN_ANGLE -100
 #define MIN_D 150 //mm
 #define MIN_IR 700 //ir0 + ir1
+#define LA_THRESH 70
+#define LA_PERTURB_MULT 1
+#define RA_THRESH 70
+#define RA_PERTURB_MULT 1
+
+#define SERVO_ANGLE_MULT (20 / 9)
+
 #define K_I 1
 #define K_P 1
 
@@ -68,38 +102,6 @@ static int car_d;
 static int l_speed, r_speed;
 
 void StartOS(void);
-
-/*
-void canGetThread(void){
-  uint8_t data[4];
-  CAN0_GetMailNonBlock(data);
-  ST7735_Message(0, 0, "IR0: ", data[0]);
-  ST7735_Message(0, 1, "IR0: ", data[1]);
-  ST7735_Message(0, 2, "IR0: ", data[2]);
-  ST7735_Message(0, 3, "IR0: ", data[3]);
-}
-
-void canPutThread(void){
-  uint8_t data[4];
-  uint32_t usdist = USSensor_GetDistance();
-  data[0] = usdist & 0x000000FF;
-  data[1] = (usdist & 0x0000FF00) >> 8;
-  data[2] = (usdist & 0x00FF0000) >> 16;
-  data[3] = (usdist & 0xFF000000) >> 24;
-  CAN0_SendData(data);
-}
-
-void canThread(void){
-  static int getPut = 0;
-  if(getPut){
-    canGetThread();
-    getPut = 0;
-  } else {
-    canPutThread();
-    getPut = 1;
-  }
-}
-*/
 
 uint32_t IRdata[4];
 uint32_t USdata[3];
@@ -138,19 +140,10 @@ void inputCapture(void){
     US_In(USdata);
 		car_d = USdata[1];
     US_StartPing();
-    //Timer0_StartPing();
-    //Timer1_StartPing();
-    //Timer3_StartPing();
 	}
   every10ms++;
   if(every10ms==10)
     every10ms = 0;
-  if(displayFlag==0){
-    displayFlag = 1;
-    //OS_AddThread(&lcdDisplay,128,1);
-  }
-  //stateMachine();
-	//pid();
 }
 
 void canSend(int s){
@@ -158,65 +151,14 @@ void canSend(int s){
   CAN0_SendData(data);
 }
 
-enum STATES {SPEEDUP,LWALL,LTURN};
-
-void stateMachine(void){
-  static int diff, avg;
-  static int wait = 50;
-  static int targetDist = 130;
-  static int state = SPEEDUP;
-  static int nextState;
-  
-  diff = IRdata[0] - IRdata[1];
-  avg = (IRdata[0] + IRdata[1])/2;
-
-  nextState = state;
-  
-  switch(state){
-    case SPEEDUP:
-    canSend(2);
-    wait--;
-    
-    if(wait<=0){
-      nextState = LWALL;
-    }
-    break;
-    case LWALL:
-     if(IRdata[0]<targetDist && IRdata[1]>targetDist){
-      canSend(7); //drift left
-    } else if(IRdata[0]>targetDist && IRdata[1]<targetDist){
-      canSend(4); //drift right
-    } else if(IRdata[0]>targetDist && IRdata[1]>targetDist){
-      canSend(7); //drift left
-    } else if(IRdata[0]<targetDist && IRdata[1]<targetDist){
-      canSend(4); //drift right
-    } else {
-      canSend(1);//drift straight
-    }
-    
-    if(IRdata[1] > targetDist*2){
-      nextState = LTURN;
-    }
-    break;
-    case LTURN:
-    canSend(13);
-    
-    if(IRdata[1] < targetDist){
-      nextState = LWALL;
-    }
-    break;
-    default:
-    
-    break;
-  }
-  
-  state = nextState;
-}
-
 void pid(void) {
 	int speed_error;
 	int wall_angle, d1, d0;
-	
+	int wall_angle_l, wall_angle_r;
+	static int la_hist=0, ra_hist=0;
+	int la_error, ra_error;
+	int la_perturb, ra_perturb;
+		
 	//speed
 	speed_error = car_d - MIN_D;
 	if(speed_error > 0)
@@ -230,6 +172,29 @@ void pid(void) {
 		base_speed = MAX_SPEED;
 	
 	//steering
+	wall_angle_l = get_wall_angle(IRdata[0], IRdata[1]);
+	wall_angle_r = get_wall_angle(IRdata[3], IRdata[2]);
+	la_error = wall_angle_l - la_hist;
+	ra_error = wall_angle_r - ra_hist;
+	
+	//integral of wall angles
+	if(la_error > LA_THRESH){
+		//do something
+		la_hist = wall_angle_l;
+		la_perturb = la_error * LA_PERTURB_MULT;
+	} else {
+		la_hist = (la_hist*9 + wall_angle_l + ((la_hist >=0) ? 5 : -5))/10;
+		la_perturb = 0;
+	}
+	if(ra_error > RA_THRESH){
+		//do something
+		ra_hist = wall_angle_r;
+		ra_perturb = ra_error * RA_PERTURB_MULT;
+	} else {
+		ra_hist = (ra_hist*9 + wall_angle_r + ((ra_hist >=0) ? 5 : -5))/10;	
+		ra_perturb = 0;
+	}
+
 	if((IRdata[0] + IRdata[1]) > (IRdata[2] + IRdata[3])) {
 		wall_angle = -get_wall_angle(IRdata[3], IRdata[2]); //turn left
 		d0 = IRdata[2]; d1 = IRdata[3];
@@ -239,7 +204,7 @@ void pid(void) {
 	}
 	
 	if(d0 + d1 < MIN_IR) { // make turn
-		servo_angle = wall_angle * 20 / 9;
+		servo_angle = wall_angle * SERVO_ANGLE_MULT - la_perturb + ra_perturb; //@TODO: check sign
 		if(wall_angle > 0) {
 			r_speed = base_speed - wall_angle * R_SPEEDUP; //turn left
 			l_speed = base_speed + wall_angle * L_SLOWDOWN;
@@ -272,9 +237,6 @@ void pid(void) {
 
 int main(void){
   OS_Init();
-//  Timer0_Init2();
-//  Timer1_Init2();
-//  Timer3_Init2();
   US_Init();
   CAN0_Open();
   IR_Init();
@@ -290,6 +252,5 @@ int main(void){
   OS_AddPeriodicThread(&inputCapture,80000,1);
 	OS_AddPeriodicThread(&pid,800000,1);
 	OS_AddThread(&lcdDisplay,128,1);
-  //OS_AddPeriodicThread(&canThread, 1600000, 0);
 	OS_Launch(TIME_1MS*10);
 }

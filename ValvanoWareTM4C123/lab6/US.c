@@ -389,7 +389,7 @@ void US_StartPing(void){
   TIMER3_ICR_R = TIMER_ICR_CAECINT;// clear timer3A capture match flag
   EndCritical(crit);
 }
-double filterUS1 = 0;
+int filterUS1 = 0;
 void US_In(uint32_t data[3]){
   static uint32_t last[3];
   int curr;
@@ -399,7 +399,7 @@ void US_In(uint32_t data[3]){
 
   curr = Cycles2millimeter(Timer1_Read());
   if(curr && curr < 800){ last[1] = curr; }
-	filterUS1 = filterUS1*.9 + last[1]*.1; 
+	filterUS1 = (filterUS1*9 + last[1] + 5)/10; 
 	last[1] = filterUS1;
   curr = Cycles2millimeter(Timer3_Read());
   if(curr && curr < 800){ last[2] = curr; }
