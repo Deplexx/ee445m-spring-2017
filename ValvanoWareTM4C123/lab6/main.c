@@ -50,7 +50,7 @@
 #define MAX_SPEED 50
 #define MAX_ANGLE 100
 #define MIN_ANGLE -100
-#define MIN_D 200 //mm
+#define MIN_D 150 //mm
 #define MIN_IR 700 //ir0 + ir1
 #define K_I 1
 #define K_P 1
@@ -239,7 +239,7 @@ void pid(void) {
 	}
 	
 	if(d0 + d1 < MIN_IR) { // make turn
-		servo_angle = wall_angle * 15 / 9;
+		servo_angle = wall_angle * 20 / 9;
 		if(wall_angle > 0) {
 			r_speed = base_speed - wall_angle * R_SPEEDUP; //turn left
 			l_speed = base_speed + wall_angle * L_SLOWDOWN;
