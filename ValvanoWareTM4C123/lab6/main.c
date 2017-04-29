@@ -54,7 +54,7 @@
 //#define MIN_ANGLE -100
 //#define MIN_D 150 //mm
 //#define MIN_IR 700 //ir0 + ir1
-//#define SERVO_ANGLE_MULT (15 / 9)
+//#define SERVO_ANGLE_MULT 15 / 9
 
 //#define K_I 1
 //#define K_P 1
@@ -75,23 +75,40 @@
 #define MIN_SPEED 30
 #define MAX_SPEED 70
 
+#define SERVO_ANGLE_MULT 25 / 9
+
+
 #define MAX_ANGLE 100
 #define MIN_ANGLE -100
-#define MIN_D 150 //mm
-#define MIN_IR 700 //ir0 + ir1
-#define LA_THRESH 70
-#define LA_PERTURB_MULT 1
-#define RA_THRESH 70
-#define RA_PERTURB_MULT 1
+#define MIN_D 250 //mm
+#define MIN_IR_PAIR_D 800 //eg. ir0 + ir1
+#define MIN_US_D 200
+#define MAX_IR_D 799 
 
-#define SERVO_ANGLE_MULT (20 / 9)
+#define US_TURN_A 30
+#define US_TURN_SPEED 50
+
+//#define D_PERTURB_MULT 1 / 50
+//#define LD_THRESH 300
+//#define LD_PERTURB_MULT D_PERTURB_MULT
+//#define RD_THRESH 300
+//#define RD_PERTURB_MULT D_PERTURB_MULT
+
+
+//#define A_PERTURB_MULT 1
+//#define LA_THRESH 70
+//#define LA_PERTURB_MULT A_PERTURB_MULT
+//#define RA_THRESH 70
+//#define RA_PERTURB_MULT A_PERTURB_MULT
 
 #define K_I 1
 #define K_P 1
 
 static int base_speed;
 static int servo_angle;
-static int car_d;
+static int car_fd;
+static int car_ld;
+static int car_rd;
 
 #define R_MIN MIN_SPEED
 #define R_SPEEDUP 1
@@ -138,11 +155,13 @@ void inputCapture(void){
   IR_In(IRdata);
   if(every10ms==0) {
     US_In(USdata);
-		car_d = USdata[1];
+		car_rd = USdata[0];
+		car_fd = USdata[1];
+		car_ld = USdata[2];
     US_StartPing();
 	}
   every10ms++;
-  if(every10ms==10)
+  if(every10ms==20)
     every10ms = 0;
 }
 
@@ -153,14 +172,19 @@ void canSend(int s){
 
 void pid(void) {
 	int speed_error;
+	int ir0, ir1, ir2, ir3;
 	int wall_angle, d1, d0;
+	int dus;
 	int wall_angle_l, wall_angle_r;
 	static int la_hist=0, ra_hist=0;
+	static int ld_hist=0, rd_hist=0;
 	int la_error, ra_error;
+	int ld_error, rd_error;
 	int la_perturb, ra_perturb;
-		
+  int ld_perturb, rd_perturb;
+	
 	//speed
-	speed_error = car_d - MIN_D;
+	speed_error = car_fd - MIN_D;
 	if(speed_error > 0)
 		base_speed = 100;
 	else
@@ -172,49 +196,88 @@ void pid(void) {
 		base_speed = MAX_SPEED;
 	
 	//steering
-	wall_angle_l = get_wall_angle(IRdata[0], IRdata[1]);
-	wall_angle_r = get_wall_angle(IRdata[3], IRdata[2]);
-	la_error = wall_angle_l - la_hist;
-	ra_error = wall_angle_r - ra_hist;
+	ir0 = IRdata[0]; ir1 = IRdata[1];
+	ir2 = IRdata[2]; ir3 = IRdata[3];
 	
-	//integral of wall angles
-	if(la_error > LA_THRESH){
-		//do something
-		la_hist = wall_angle_l;
-		la_perturb = la_error * LA_PERTURB_MULT;
-	} else {
-		la_hist = (la_hist*9 + wall_angle_l + ((la_hist >=0) ? 5 : -5))/10;
-		la_perturb = 0;
-	}
-	if(ra_error > RA_THRESH){
-		//do something
-		ra_hist = wall_angle_r;
-		ra_perturb = ra_error * RA_PERTURB_MULT;
-	} else {
-		ra_hist = (ra_hist*9 + wall_angle_r + ((ra_hist >=0) ? 5 : -5))/10;	
-		ra_perturb = 0;
-	}
+	wall_angle_l = get_wall_angle(ir0, ir1);
+	wall_angle_r = get_wall_angle(ir3, ir2);
+//	
+//	la_error = wall_angle_l - la_hist;
+//	ra_error = wall_angle_r - ra_hist;
+//	
+//	//integral of wall angles
+//	if(la_error > LA_THRESH){
+//		PF2 |= 0x04;
+//		la_hist = wall_angle_l;
+//		la_perturb = la_error * LA_PERTURB_MULT;
+//	} else {
+//		la_hist = (la_hist*9 + wall_angle_l + ((la_hist >=0) ? 5 : -5))/10;
+//		la_perturb = 0;
+//	}
+//	if(ra_error > RA_THRESH){
+//		PF3 |= 0x08;
+//		ra_hist = wall_angle_r;
+//		ra_perturb = ra_error * RA_PERTURB_MULT;
+//	} else {
+//		ra_hist = (ra_hist*9 + wall_angle_r + ((ra_hist >=0) ? 5 : -5))/10;	
+//		ra_perturb = 0;
+//	}
 
-	if((IRdata[0] + IRdata[1]) > (IRdata[2] + IRdata[3])) {
-		wall_angle = -get_wall_angle(IRdata[3], IRdata[2]); //turn left
-		d0 = IRdata[2]; d1 = IRdata[3];
+//	la_perturb = la_error * LA_PERTURB_MULT;		
+//	la_hist = (la_hist*9 + wall_angle_l + ((la_hist >=0) ? 5 : -5))/10;
+//	
+//	ra_perturb = ra_error * RA_PERTURB_MULT;
+//	ra_hist = (ra_hist*9 + wall_angle_r + ((ra_hist >=0) ? 5 : -5))/10;	
+
+//	if((ir0 + ir1) > (ir2 + ir3)) {
+//		wall_angle = -get_wall_angle(ir3, ir2); //turn left
+//		d0 = ir2; d1 = ir3;
+//	} else {
+//		wall_angle = get_wall_angle(ir0, ir1); //turn right
+//		d0 = ir0; d1 = ir1;
+//	}
+
+	if((ir0 + ir1) > (ir2 + ir3)) {
+		wall_angle = -get_wall_angle(ir3, ir2); //turn left
+		dus = car_rd; d0 = ir2; d1 = ir3;
 	} else {
-		wall_angle = get_wall_angle(IRdata[0], IRdata[1]); //turn right
-		d0 = IRdata[0]; d1 = IRdata[1];
+		wall_angle = get_wall_angle(ir0, ir1); //turn right
+		dus = car_ld; d0 = ir0; d1 = ir1;
 	}
 	
-	if(d0 + d1 < MIN_IR) { // make turn
-		servo_angle = wall_angle * SERVO_ANGLE_MULT - la_perturb + ra_perturb; //@TODO: check sign
-		if(wall_angle > 0) {
-			r_speed = base_speed - wall_angle * R_SPEEDUP; //turn left
+	if(d0 + d1 < MIN_IR_PAIR_D) { // make turn
+//	if(dus < MIN_US_D) { // make turn
+		servo_angle = wall_angle * SERVO_ANGLE_MULT;
+		if(wall_angle_l > 70 || wall_angle_r > 70
+			 || wall_angle_l < -70 || wall_angle_r < -70) { //detected right-angle turn
+			if(car_ld > car_rd) { //turn left
+				servo_angle = -US_TURN_A * SERVO_ANGLE_MULT;
+				r_speed = base_speed + US_TURN_SPEED * R_SPEEDUP;
+				l_speed = base_speed - US_TURN_SPEED * L_SLOWDOWN;
+			} else { //turn right
+				servo_angle = US_TURN_A * SERVO_ANGLE_MULT;
+				r_speed = base_speed - US_TURN_SPEED * R_SLOWDOWN;
+				l_speed = base_speed + US_TURN_SPEED * L_SPEEDUP;
+			}	
+		} else if(wall_angle > 0) { //turn left			 
+			r_speed = base_speed - wall_angle * R_SPEEDUP;
 			l_speed = base_speed + wall_angle * L_SLOWDOWN;
-		} else {
-			r_speed = base_speed - wall_angle * R_SLOWDOWN; //turn right
+		} else { //turn right
+			r_speed = base_speed - wall_angle * R_SLOWDOWN;
 			l_speed = base_speed + wall_angle * L_SPEEDUP;
-		}
+		} 
   } else {
 		servo_angle = 0; l_speed = r_speed = base_speed;
 	}
+	
+	//right-angle turn detected; turn regardless of IR sensor distance measurement
+//	servo_angle += ra_perturb - la_perturb; //@TODO: check sign
+//	r_speed += la_perturb - ra_perturb;
+//	l_speed += ra_perturb - la_perturb;
+	
+//	servo_angle += rd_perturb - ld_perturb; //@TODO: check sign
+//	r_speed += ld_perturb - rd_perturb;
+//	l_speed += rd_perturb - ld_perturb;
 	
 	if(r_speed < R_MIN)
 		r_speed = R_MIN;

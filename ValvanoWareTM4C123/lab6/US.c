@@ -389,21 +389,23 @@ void US_StartPing(void){
   TIMER3_ICR_R = TIMER_ICR_CAECINT;// clear timer3A capture match flag
   EndCritical(crit);
 }
-int filterUS1 = 0;
+int filterUS[3] = {0,};
 void US_In(uint32_t data[3]){
   static uint32_t last[3];
-  int curr;
+  int curr[3];
 
-  curr = Cycles2millimeter(Timer0_Read());
-  if(curr && curr < 800){ last[0] = curr; }
-
-  curr = Cycles2millimeter(Timer1_Read());
-  if(curr && curr < 800){ last[1] = curr; }
-	filterUS1 = (filterUS1*9 + last[1] + 5)/10; 
-	last[1] = filterUS1;
-  curr = Cycles2millimeter(Timer3_Read());
-  if(curr && curr < 800){ last[2] = curr; }
-
+  curr[0] = Cycles2millimeter(Timer0_Read());
+	curr[1] = Cycles2millimeter(Timer1_Read());
+	curr[2] = Cycles2millimeter(Timer3_Read());
+ 
+	for(int i = 0; i < 3; ++i) {
+		if(curr[i]) { 
+			last[i] = curr[i];
+			filterUS[i] = (filterUS[i]*9 + last[i] + 5)/10; 
+		}
+		last[i] = filterUS[i];
+	}
+	 
   data[0] = last[0];
   data[1] = last[1];
   data[2] = last[2];
