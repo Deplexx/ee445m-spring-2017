@@ -44,6 +44,7 @@
 #include "IR.h"
 
 #define PF0       (*((volatile uint32_t *)0x40025004))
+//#define PF1       (*((volatile uint32_t *)0x40025008))
 #define PF4       (*((volatile uint32_t *)0x40025040))
 
 //prod
@@ -72,22 +73,28 @@
 //static int l_speed, r_speed;
 
 //testing
-#define MIN_SPEED 30
-#define MAX_SPEED 70
+#define MIN_SPEED 5
+#define MAX_SPEED 80
 
 #define SERVO_ANGLE_MULT 25 / 9
 
 
 #define MAX_ANGLE 100
 #define MIN_ANGLE -100
-#define MIN_D 250 //mm
-#define MIN_IR_PAIR_D 800 //eg. ir0 + ir1
-#define MIN_US_D 200
-#define MAX_IR_D 799 
-
-#define US_TURN_A 30
-#define US_TURN_SPEED 50
-
+#define MIN_D 400 //distance at which US will slow down
+//#define SLOWDOWN_FACTOR 20;
+#define MIN_US_D 240
+#define MAX_IR_D 799  // not used
+#define MIN_IR_PAIR_D 1500 //eg. ir0 + ir1; distance to detect a general turn
+//#define US_TURN_DETECT 1200 //ultrasonic override to initiate a hard turn;
+#define US_TOO_CLOSE 140 //ultrasonice detection of being too close to a wall
+#define US_NO_ROOM 400 // will not drift if there is not at least this much US room
+#define US_DRIFT 40 // the amount ultrasonic_too_close will attempt to drift if too close to a wall
+#define US_TURN_A 50 //harshness of a hard turn on servo
+#define US_TURN_SPEED 40 //harshness of a hard turn on DC motors
+#define HARD_TURN_A 60 // angle to detect a hard turn
+#define SOFT_TURN_FACTOR 3; // divider on speed during soft turns
+#define HARD_TURN_FACTOR 1; // divider on speed during hard turns
 //#define D_PERTURB_MULT 1 / 50
 //#define LD_THRESH 300
 //#define LD_PERTURB_MULT D_PERTURB_MULT
@@ -129,6 +136,8 @@ unsigned long calcTime;
 void stateMachine(void);
 void pid(void);
 
+int turning = 0;
+
 void lcdDisplay(void){
 	while(1) {
 		uint32_t angleL = get_wall_angle(IRdata[0], IRdata[1]);
@@ -139,6 +148,8 @@ void lcdDisplay(void){
 		ST7735_Message(0, 3, "IR3: ", IRdata[3]);
 		ST7735_Message(0, 4, "AngleL: ", angleL);
 		ST7735_Message(0, 5, "AngleR: ", angleR);
+		ST7735_Message(0, 6, "Turning: ", turning);
+		
 		ST7735_Message(1, 0, "US0: ", USdata[0]);
 		ST7735_Message(1, 1, "US1: ", USdata[1]);
 		ST7735_Message(1, 2, "US2: ", USdata[2]);
@@ -161,7 +172,7 @@ void inputCapture(void){
     US_StartPing();
 	}
   every10ms++;
-  if(every10ms==20)
+  if(every10ms==10)
     every10ms = 0;
 }
 
@@ -169,6 +180,8 @@ void canSend(int s){
   data[0] = s;
   CAN0_SendData(data);
 }
+
+int godmode;
 
 void pid(void) {
 	int speed_error;
@@ -245,28 +258,81 @@ void pid(void) {
 		dus = car_ld; d0 = ir0; d1 = ir1;
 	}
 	
-	if(d0 + d1 < MIN_IR_PAIR_D) { // make turn
+	int US_d = car_rd + car_ld;
+	int US_front = car_fd;
+
+	
+	if(d0 + d1 < MIN_IR_PAIR_D || US_front < 700) { // make turn
+		PF1 = 0x02;
+		turning = 1;
 //	if(dus < MIN_US_D) { // make turn
 		servo_angle = wall_angle * SERVO_ANGLE_MULT;
-		if(wall_angle_l > 70 || wall_angle_r > 70
-			 || wall_angle_l < -70 || wall_angle_r < -70) { //detected right-angle turn
+		
+		if(US_front<170){ // turn like a god
+			turning = 9;
+			godmode = 1;
+			if((ir1+ir2)>100){
+				//false flag
+					turning = 0;
+					servo_angle = 0; l_speed = r_speed = base_speed;
+			}else if(car_ld > car_rd){//turn left in place
+				servo_angle = MIN_ANGLE;
+				r_speed = 0;
+				l_speed = MAX_SPEED;
+			}else if(car_ld < car_rd){//turn right in place
+				servo_angle = MAX_ANGLE;
+				r_speed = MAX_SPEED;
+				l_speed = 0;
+			}
+		
+		}else if(wall_angle_l > HARD_TURN_A || wall_angle_r > HARD_TURN_A
+			 || wall_angle_l < -HARD_TURN_A || wall_angle_r < -HARD_TURN_A) { //detected hard turn
+				 turning = 2;
+				 if(godmode){
+					 base_speed = MAX_SPEED/2;
+					 godmode = 0;
+				 }
 			if(car_ld > car_rd) { //turn left
 				servo_angle = -US_TURN_A * SERVO_ANGLE_MULT;
-				r_speed = base_speed + US_TURN_SPEED * R_SPEEDUP;
-				l_speed = base_speed - US_TURN_SPEED * L_SLOWDOWN;
+				r_speed = base_speed + US_TURN_SPEED * R_SPEEDUP / HARD_TURN_FACTOR;
+				l_speed = base_speed - US_TURN_SPEED * L_SLOWDOWN / HARD_TURN_FACTOR;
 			} else { //turn right
 				servo_angle = US_TURN_A * SERVO_ANGLE_MULT;
-				r_speed = base_speed - US_TURN_SPEED * R_SLOWDOWN;
-				l_speed = base_speed + US_TURN_SPEED * L_SPEEDUP;
+				r_speed = base_speed - US_TURN_SPEED * R_SLOWDOWN / HARD_TURN_FACTOR;
+				l_speed = base_speed + US_TURN_SPEED * L_SPEEDUP / HARD_TURN_FACTOR;
 			}	
-		} else if(wall_angle > 0) { //turn left			 
-			r_speed = base_speed - wall_angle * R_SPEEDUP;
-			l_speed = base_speed + wall_angle * L_SLOWDOWN;
-		} else { //turn right
-			r_speed = base_speed - wall_angle * R_SLOWDOWN;
-			l_speed = base_speed + wall_angle * L_SPEEDUP;
+		} else if(wall_angle > 0) { //soft turn left
+				turning = 3;
+			if(godmode){
+					 base_speed = MAX_SPEED/2;
+					 godmode = 0;
+				 }
+			r_speed = base_speed - wall_angle * R_SPEEDUP / SOFT_TURN_FACTOR;
+			l_speed = base_speed + wall_angle * L_SLOWDOWN / SOFT_TURN_FACTOR;
+		} else { //soft turn right
+			turning = 4;
+			if(godmode){
+					 base_speed = MAX_SPEED/2;
+					 godmode = 0;
+				 }
+			r_speed = base_speed - wall_angle * R_SLOWDOWN / SOFT_TURN_FACTOR;
+			l_speed = base_speed + wall_angle * L_SPEEDUP / SOFT_TURN_FACTOR;
 		} 
-  } else {
+  } else if(car_rd<US_TOO_CLOSE || car_ld<US_TOO_CLOSE){//too close to wall, tilt away
+		PF1 = 0x00;
+		turning = 1;
+		if(US_d<=US_NO_ROOM){//there's no room to drift
+			
+		}else if (car_rd<US_TOO_CLOSE){//right wall too close, drift left
+			r_speed = base_speed - US_DRIFT * R_SPEEDUP;
+			l_speed = base_speed + US_DRIFT * L_SLOWDOWN;
+		}else if (car_ld<US_TOO_CLOSE){//left wall too close, drift right
+			r_speed = base_speed - US_DRIFT * R_SLOWDOWN;
+			l_speed = base_speed + US_DRIFT * L_SPEEDUP;
+		}
+	}else {//go straight
+		PF1 = 0x00;
+		turning = 0;
 		servo_angle = 0; l_speed = r_speed = base_speed;
 	}
 	
