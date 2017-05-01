@@ -409,55 +409,36 @@ void US_In(uint32_t data[3]){
   int curr[3];
 
   curr[0] = Cycles2millimeter(Timer0_Read());
-	
-
 	curr[1] = Cycles2millimeter(Timer1_Read());
-	
-
 	curr[2] = Cycles2millimeter(Timer3_Read());
-	
-	
-	
-	
-	
-	
-		if(curr[0] > 2600){
-			curr[0] = 2600;
-		}
-		if(curr[1] > 2600){
-			curr[1] = 2600;
-		}
-		if(curr[2] > 2600){
-			curr[2] = 2600;
-		}
+	if(curr[0] > 2600 || curr[0] == 0){
+		curr[0] = 2600;
+	}
+	if(curr[1] > 2600 || curr[1] == 0){
+		curr[1] = 2600;
+	}
+	if(curr[2] > 2600 || curr[2] == 0){
+		curr[2] = 2600;
+	}
 
-		if(curr[0] == 0){
-			curr[0] = 2600;
-
-		}
-			Timer0Ignore = Timer0Ignore + 1;
-			if(Timer0Ignore > 2){
-			Timer0Ignore = 0;
-		}
-		if(curr[1] == 0){
-			curr[1] = 2600;
-
-		}
-			Timer1Ignore = Timer1Ignore + 1;
-			if(Timer1Ignore > 2){
-			Timer1Ignore = 0;
-		}				
-		if(curr[2] == 0){
-			curr[2] = 2600;
-
-		}
-			Timer3Ignore = Timer3Ignore + 1;
-			if(Timer3Ignore > 2){
-			Timer3Ignore = 0;
-		}	
-		
-		
-		
+//	Timer0Ignore = Timer0Ignore + 1;
+//	if(Timer0Ignore > 2){
+//		Timer0Ignore = 0;
+//	}
+//	if(curr[1] == 0){
+//		curr[1] = 2600;
+//	}
+//	Timer1Ignore = Timer1Ignore + 1;
+//	if(Timer1Ignore > 2){
+//		Timer1Ignore = 0;
+//	}				
+//	if(curr[2] == 0){
+//		curr[2] = 2600;
+//	}
+//	Timer3Ignore = Timer3Ignore + 1;
+//	if(Timer3Ignore > 2){
+//		Timer3Ignore = 0;
+//	}	
 	for(int i = 0; i < 3; ++i) {
 		if(curr[i]) { 
 			last[i] = curr[i];
@@ -465,7 +446,6 @@ void US_In(uint32_t data[3]){
 		}
 		last[i] = filterUS[i];
 	}
-	 
   data[0] = last[0];
   data[1] = last[1];
   data[2] = last[2];
