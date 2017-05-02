@@ -271,7 +271,7 @@ void pid(void) {
 	int WA_left = get_wall_angle(ir0, ir1);
 	
 	////STATE MACHINE
-	if((car_rd<US_TOO_CLOSE || car_ld<US_TOO_CLOSE)){
+	if((car_rd<US_TOO_CLOSE || car_ld<US_TOO_CLOSE) && US_front>400){
 		/****too close to wall, tilt away****/
 		
 		PF1 = 0x00;
