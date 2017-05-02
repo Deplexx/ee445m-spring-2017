@@ -153,7 +153,7 @@ void lcdDisplay(void){
 		}else{
 			ST7735_Message(0, 6, "Left Pref ", preference);
 		}
-		ST7735_Message(0, 7, "Turning: ", turning);
+		ST7735_Message(0, 7, "Countdown: ", countdown_timer);
 		
 		ST7735_Message(1, 0, "US0: ", USdata[0]);
 		ST7735_Message(1, 1, "US1: ", USdata[1]);
