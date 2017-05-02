@@ -91,17 +91,22 @@
 //#define US_TURN_DETECT 1200 //ultrasonic override to initiate a hard turn;
 #define US_TOO_CLOSE 200 //ultrasonice detection of being too close to a wall
 #define US_NO_ROOM 300 // will not drift if there is not at least this much US room
-#define US_DRIFT 40 // the amount ultrasonic_too_close will attempt to drift if too close to a wall
+#define US_DRIFT 2 // the amount ultrasonic_too_close will attempt to drift if too close to a wall
+#define US_DRIFT_ANGLE 33//harshness of a drift on servo (0-100)
 #define US_TURN_A 70 //harshness of a hard turn on servo
 #define US_TURN_SPEED 60 //harshness of a hard turn on DC motors
 #define HARD_TURN_A 75 // angle to detect a hard turn
 #define SOFT_TURN_FACTOR 1 // divider on speed during soft turns
 #define HARD_TURN_FACTOR 1 // divider on speed during hard turns
 #define PROBABLY_DISTANCE 50
+#define PREFERENCE_CHANGE_MIN_DIST 320//min front us distance at which prefence will change
+#define PREFERENCE_CHANGE_MAX_DIST 1000//max front us distance at whcih preference will change
+
 
 #define K_I 1
 #define K_P 1/4
 
+int countdown_timer = 180000;
 static int base_speed;
 static int servo_angle;
 static int car_fd;
@@ -190,6 +195,17 @@ void canSend(int s){
 
 void pid(void) {
 
+	/**180-sec countdown timer**/
+	if(countdown_timer <=0){
+		data[0] = 10;
+		data[1] = 0;
+		data[2] = 0;
+		data[3] = 100;
+		CAN0_SendData((uint8_t*) data);
+		return;
+	}
+	countdown_timer--;
+	
 	int speed_error;
 	int ir0, ir1, ir2, ir3;
 	int wall_angle, d1, d0;
@@ -207,7 +223,7 @@ void pid(void) {
 	if(dist_diff < 0){
 		dist_diff = dist_diff*-1;
 	}
-	if(car_fd > 320 && car_fd<1000){//only change prefence when we are between 32 and 100 cm
+	if(car_fd > PREFERENCE_CHANGE_MIN_DIST && car_fd<PREFERENCE_CHANGE_MAX_DIST){//only change prefence when we are between min/max distance
 		if(dist_diff > PROBABLY_DISTANCE){
 			if(car_ld > car_rd){
 				preference = 0;//left
@@ -255,7 +271,7 @@ void pid(void) {
 	int WA_left = get_wall_angle(ir0, ir1);
 	
 	////STATE MACHINE
-	if(car_rd<US_TOO_CLOSE || car_ld<US_TOO_CLOSE){
+	if((car_rd<US_TOO_CLOSE || car_ld<US_TOO_CLOSE)){
 		/****too close to wall, tilt away****/
 		
 		PF1 = 0x00;
@@ -264,11 +280,15 @@ void pid(void) {
 		}else if (car_rd<US_TOO_CLOSE){																					//right wall too close, drift left
 			r_speed = base_speed + US_TURN_SPEED * R_SPEEDUP / HARD_TURN_FACTOR;
 			l_speed = base_speed - US_TURN_SPEED * L_SLOWDOWN / HARD_TURN_FACTOR;
-			servo_angle = -33;
+//			r_speed = base_speed + US_TURN_SPEED * US_DRIFT;
+//			l_speed = base_speed - US_TURN_SPEED * US_DRIFT;
+			servo_angle = -US_DRIFT_ANGLE;
 		}else if (car_ld<US_TOO_CLOSE){																					//left wall too close, drift right
-			r_speed = base_speed - US_TURN_SPEED * R_SLOWDOWN / HARD_TURN_FACTOR;
-			l_speed = base_speed + US_TURN_SPEED * L_SPEEDUP / HARD_TURN_FACTOR;
-			servo_angle = 33;
+		r_speed = base_speed - US_TURN_SPEED * R_SLOWDOWN / HARD_TURN_FACTOR;
+		l_speed = base_speed + US_TURN_SPEED * L_SPEEDUP / HARD_TURN_FACTOR;
+//			r_speed = base_speed - US_TURN_SPEED * US_DRIFT;
+//			l_speed = base_speed + US_TURN_SPEED * US_DRIFT;
+			servo_angle = US_DRIFT_ANGLE;
 		}
 	}else if(d0 + d1 < MIN_IR_PAIR_D || US_front < 900) {
 		/****make some sort of turn****/
