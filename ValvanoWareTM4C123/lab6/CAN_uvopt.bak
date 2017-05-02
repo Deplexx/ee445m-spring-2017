@@ -174,7 +174,7 @@
         <Bp>
           <Number>2</Number>
           <Type>0</Type>
-          <LineNumber>393</LineNumber>
+          <LineNumber>334</LineNumber>
           <EnabledFlag>1</EnabledFlag>
           <Address>0</Address>
           <ByteObject>0</ByteObject>
@@ -190,7 +190,7 @@
         <Bp>
           <Number>3</Number>
           <Type>0</Type>
-          <LineNumber>460</LineNumber>
+          <LineNumber>394</LineNumber>
           <EnabledFlag>1</EnabledFlag>
           <Address>0</Address>
           <ByteObject>0</ByteObject>
@@ -273,10 +273,10 @@
       <FileType>1</FileType>
       <tvExp>1</tvExp>
       <Focus>0</Focus>
-      <ColumnNumber>16</ColumnNumber>
+      <ColumnNumber>25</ColumnNumber>
       <tvExpOptDlg>0</tvExpOptDlg>
-      <TopLine>310</TopLine>
-      <CurrentLine>316</CurrentLine>
+      <TopLine>179</TopLine>
+      <CurrentLine>195</CurrentLine>
       <bDave2>0</bDave2>
       <PathWithFileName>.\main.c</PathWithFileName>
       <FilenameWithoutPath>main.c</FilenameWithoutPath>
