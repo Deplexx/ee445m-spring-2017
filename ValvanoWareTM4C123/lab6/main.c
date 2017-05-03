@@ -295,7 +295,7 @@ void pid(void) {
 		PF1 = 0x02;
 		turning = 1;
 		servo_angle = wall_angle * SERVO_ANGLE_MULT;
-		MAX_SPEED = 90;
+		MAX_SPEED = 95;
 	
 		if(US_front<230){ 
 			/**GOD_TURN**/

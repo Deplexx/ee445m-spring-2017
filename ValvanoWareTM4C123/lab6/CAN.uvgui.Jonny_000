@@ -81,10 +81,10 @@
         <yPos>-1</yPos>
       </MaxPosition>
       <NormalPosition>
-        <Top>28</Top>
+        <Top>21</Top>
         <Left>54</Left>
         <Right>1357</Right>
-        <Bottom>775</Bottom>
+        <Bottom>768</Bottom>
       </NormalPosition>
     </WindowPosition>
     <MDIClientArea>
@@ -2622,7 +2622,7 @@
       </Doc>
       <Doc>
         <Name>.\main.c</Name>
-        <ColumnNumber>19</ColumnNumber>
+        <ColumnNumber>18</ColumnNumber>
         <TopLine>286</TopLine>
         <CurrentLine>298</CurrentLine>
         <Folding>1</Folding>
