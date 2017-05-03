@@ -74,8 +74,7 @@
 
 //testing
 #define MIN_SPEED 5
-#define MAX_SPEED 95
-
+//#define MAX_SPEED 95
 #define SERVO_ANGLE_MULT 25 / 9
 
 #define minProbDist 300  //min value to during ehich preference can change
@@ -89,10 +88,10 @@
 #define MAX_IR_D 799  // not used
 #define MIN_IR_PAIR_D 1000 //eg. ir0 + ir1; distance to detect a general turn
 //#define US_TURN_DETECT 1200 //ultrasonic override to initiate a hard turn;
-#define US_TOO_CLOSE 200 //ultrasonice detection of being too close to a wall
+#define US_TOO_CLOSE 220 //ultrasonice detection of being too close to a wall
 #define US_NO_ROOM 300 // will not drift if there is not at least this much US room
 #define US_DRIFT 2 // the amount ultrasonic_too_close will attempt to drift if too close to a wall
-#define US_DRIFT_ANGLE 33//harshness of a drift on servo (0-100)
+#define US_DRIFT_ANGLE 45//harshness of a drift on servo (0-100)
 #define US_TURN_A 70 //harshness of a hard turn on servo
 #define US_TURN_SPEED 60 //harshness of a hard turn on DC motors
 #define HARD_TURN_A 75 // angle to detect a hard turn
@@ -106,7 +105,8 @@
 #define K_I 1
 #define K_P 1/4
 
-int countdown_timer = 180000;
+int MAX_SPEED = 100;
+int countdown_timer = 18000;
 static int base_speed;
 static int servo_angle;
 static int car_fd;
@@ -271,7 +271,7 @@ void pid(void) {
 	int WA_left = get_wall_angle(ir0, ir1);
 	
 	////STATE MACHINE
-	if((car_rd<US_TOO_CLOSE || car_ld<US_TOO_CLOSE) && US_front>400){
+	if((car_rd<US_TOO_CLOSE || car_ld<US_TOO_CLOSE) && US_front>50){
 		/****too close to wall, tilt away****/
 		
 		PF1 = 0x00;
@@ -295,6 +295,7 @@ void pid(void) {
 		PF1 = 0x02;
 		turning = 1;
 		servo_angle = wall_angle * SERVO_ANGLE_MULT;
+		MAX_SPEED = 90;
 	
 		if(US_front<230){ 
 			/**GOD_TURN**/
@@ -389,6 +390,7 @@ void pid(void) {
 		/****go straight****/
 		PF1 = 0x00;
 		turning = 0;
+		MAX_SPEED = 100;
 		servo_angle = 0; l_speed = r_speed = base_speed;
 	}
 	
