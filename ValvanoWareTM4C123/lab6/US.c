@@ -78,6 +78,7 @@ void DelayWait5us(void){uint32_t volatile time;
 }
 //---------------------Timer0----------------------------
 uint32_t Timer0First,Timer0Done,Timer0Pulse;
+uint32_t Timer0Ignore,Timer1Ignore,Timer3Ignore= 0;
 //------------Timer0_Init------------
 // Initialize Timer0A in edge time mode to request interrupts on
 // the both edges of PB6 (T0CCP0).  The interrupt service routine
@@ -365,28 +366,41 @@ void US_Init(void){
   Timer1_Init2();
   Timer3_Init2();
 }
-
+uint32_t timeout0,timeout1,timeout2 = 0;
 void US_StartPing(void){
   long crit = StartCritical();
-  GPIO_PORTB_AFSEL_R &= ~0x54;     // disable alt funct on PB6
-  GPIO_PORTB_PCTL_R = GPIO_PORTB_PCTL_R&0xF0F0F0FF;
-  GPIO_PORTB_DIR_R |= 0x54;        // make PB6 output
-  Timer0Done = 0;
-  Timer1Done = 0;
-  Timer3Done = 0;
-  ECHO0 = ECHO0HIGH;
-  ECHO1 = ECHO1HIGH;
-  ECHO3 = ECHO3HIGH;
-  DelayWait5us();
-  ECHO0 = 0;
-  ECHO1 = 0;
-  ECHO3 = 0;
-  GPIO_PORTB_DIR_R &= ~0x54;       // make PB6 in
-  GPIO_PORTB_AFSEL_R |= 0x54;      // enable alt funct on PB6
-  GPIO_PORTB_PCTL_R = (GPIO_PORTB_PCTL_R&0xF0F0F0FF)+0x07070700;
-  TIMER0_ICR_R = TIMER_ICR_CAECINT;// clear timer0A capture match flag
-  TIMER1_ICR_R = TIMER_ICR_CAECINT;// clear timer1A capture match flag
-  TIMER3_ICR_R = TIMER_ICR_CAECINT;// clear timer3A capture match flag
+	if(Timer0Ignore == 0){
+		Timer0_StartPing();
+	}
+	if(Timer1Ignore == 0){
+		Timer1_StartPing();
+	}
+	if(Timer3Ignore == 0){
+		Timer3_StartPing();
+	}
+	
+
+	
+	
+//  GPIO_PORTB_AFSEL_R &= ~0x54;     // disable alt funct on PB6
+//  GPIO_PORTB_PCTL_R = GPIO_PORTB_PCTL_R&0xF0F0F0FF;
+//  GPIO_PORTB_DIR_R |= 0x54;        // make PB6 output
+//  Timer0Done = 0;
+//  Timer1Done = 0;
+//  Timer3Done = 0;
+//  ECHO0 = ECHO0HIGH;
+//  ECHO1 = ECHO1HIGH;
+//  ECHO3 = ECHO3HIGH;
+//  DelayWait5us();
+//  ECHO0 = 0;
+//  ECHO1 = 0;
+//  ECHO3 = 0;
+//  GPIO_PORTB_DIR_R &= ~0x54;       // make PB6 in
+//  GPIO_PORTB_AFSEL_R |= 0x54;      // enable alt funct on PB6
+//  GPIO_PORTB_PCTL_R = (GPIO_PORTB_PCTL_R&0xF0F0F0FF)+0x07070700;
+//  TIMER0_ICR_R = TIMER_ICR_CAECINT;// clear timer0A capture match flag
+//  TIMER1_ICR_R = TIMER_ICR_CAECINT;// clear timer1A capture match flag
+//  TIMER3_ICR_R = TIMER_ICR_CAECINT;// clear timer3A capture match flag
   EndCritical(crit);
 }
 int filterUS[3] = {0,};
@@ -397,7 +411,34 @@ void US_In(uint32_t data[3]){
   curr[0] = Cycles2millimeter(Timer0_Read());
 	curr[1] = Cycles2millimeter(Timer1_Read());
 	curr[2] = Cycles2millimeter(Timer3_Read());
- 
+	if(curr[0] > 2600 || curr[0] == 0){
+		curr[0] = 2600;
+	}
+	if(curr[1] > 2600 || curr[1] == 0){
+		curr[1] = 2600;
+	}
+	if(curr[2] > 2600 || curr[2] == 0){
+		curr[2] = 2600;
+	}
+
+//	Timer0Ignore = Timer0Ignore + 1;
+//	if(Timer0Ignore > 2){
+//		Timer0Ignore = 0;
+//	}
+//	if(curr[1] == 0){
+//		curr[1] = 2600;
+//	}
+//	Timer1Ignore = Timer1Ignore + 1;
+//	if(Timer1Ignore > 2){
+//		Timer1Ignore = 0;
+//	}				
+//	if(curr[2] == 0){
+//		curr[2] = 2600;
+//	}
+//	Timer3Ignore = Timer3Ignore + 1;
+//	if(Timer3Ignore > 2){
+//		Timer3Ignore = 0;
+//	}	
 	for(int i = 0; i < 3; ++i) {
 		if(curr[i]) { 
 			last[i] = curr[i];
@@ -405,7 +446,6 @@ void US_In(uint32_t data[3]){
 		}
 		last[i] = filterUS[i];
 	}
-	 
   data[0] = last[0];
   data[1] = last[1];
   data[2] = last[2];
